@@ -89,7 +89,7 @@ class SyncEngine(private val context: Context, private val repository: ShoppingR
             for (i in 0 until rows.length()) {
                 val row = rows.getJSONObject(i); val id = row.getString("id"); accessible.add(id)
                 val d = row.getJSONObject("data")
-                if (repository.dao.queued(id) == 0) repository.dao.save(ShoppingList(id = id, name = d.getString("name"), description = d.optString("description"), market = d.optString("market"), budgetCents = d.optLong("budget_cents"), status = d.optString("status", "active"), shared = true, version = row.getLong("version"), deleted = d.optBoolean("deleted")))
+                if (repository.dao.queued(id) == 0) repository.dao.save(ShoppingList(id = id, name = d.getString("name"), description = d.optString("description"), market = d.optString("market"), budgetCents = d.optLong("budget_cents"), status = d.optString("status", "active"), createdAt = java.time.Instant.parse(row.getString("created_at")).toEpochMilli(), updatedAt = java.time.Instant.parse(row.getString("updated_at")).toEpochMilli(), shared = true, version = row.getLong("version"), deleted = d.optBoolean("deleted")))
                 var itemOffset = 0
                 do {
                     val items = JSONArray(request("/rest/v1/shopping_items?list_id=eq.$id&select=*&order=id&limit=200&offset=$itemOffset", token = token()))

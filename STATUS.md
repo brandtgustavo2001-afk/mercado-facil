@@ -1,0 +1,57 @@
+# Estado da entrega
+
+Este projeto é uma primeira implementação funcional, **não a conclusão integral dos dois briefings**.
+
+## Verificado no ambiente local
+
+- Compilação do APK debug e do APK de testes de instrumentação.
+- Quinze testes unitários: centavos/quantidades, comparação SemVer, patch de sincronização e restrição de URLs de atualização.
+- Android Lint sem erros; há avisos de atualização de dependências e recomendações.
+
+## Implementado, com validação externa pendente
+
+- Banco Room e transações, CRUD de listas/produtos, temas, modo de compras, categorias, orçamento, estatísticas e backup.
+- Supabase Auth REST, refresh de sessão, criptografia AndroidKeyStore, Realtime WebSocket, fila local, reconexão, RPC de conflitos, RLS, convites e auditoria.
+- Atualizador: consulta pública, download, checksum, pacote, assinatura, versionCode e PackageInstaller.
+- Leitor por Google Play Services e consulta Open Food Facts, com cadastro manual.
+- Lembretes e checagem de updates via WorkManager.
+- Workflow de release assinado: depende dos GitHub Secrets.
+
+## Ainda necessário para cumprir integralmente o escopo
+
+- Conectar um Supabase real, aplicar SQL e executar a matriz abaixo em dois aparelhos.
+- Executar testes instrumentados em dispositivo/emulador; o ambiente não tem aparelho conectado.
+- Verificar atualização 1.0.0 → 1.1.0 assinada, com preservação do banco, sessão e fila.
+- Testes instrumentados específicos de migração de esquema, testes de download interrompido/corrompido e assinatura incompatível.
+- Cursor incremental durável, assinaturas por lista e tratamento dedicado de remoção de acesso com fila offline.
+- Histórico financeiro e de preços em entidades próprias e snapshots imutáveis; hoje os relatórios usam listas concluídas e produtos persistidos.
+- Catálogo Product independente, gerenciamento completo de favoritos, ordenação manual e opções de ordenação persistidas.
+- Edição de categorias (nome/ícone/cor), importação/exportação completa incluindo categorias/preferências e limpeza de histórico com confirmação.
+- Links de convite/deep links, nomes e avatares dos participantes em vez de UUIDs abreviados, horário de compra e notificações específicas de alterações compartilhadas.
+- Fluxo nativo completo de recuperação de senha; atualmente é enviado o e-mail para o fluxo web configurado.
+- Revisão visual em aparelhos pequenos, telas grandes, modo escuro e com escala de fonte elevada.
+- Atualizar toolchain para o SDK estável mais recente após instalar/validar o ambiente correspondente.
+- Teste de segurança Strix só depois de existir um backend configurado e um alvo autorizado. O conector Code Review disponível consulta PRs; não há PR de revisão criado. Graphify não indexa este repositório novo.
+
+## Matriz de aceite de integração
+
+Cada cenário deve produzir evidência em dispositivo e no servidor antes de declarar sincronização pronta:
+
+1. Dois usuários adicionam produtos à mesma lista.
+2. Marcação de compra aparece no outro aparelho sem atualização manual.
+3. Preço e quantidade editados simultaneamente são preservados.
+4. Mesmo campo editado gera conflito e a decisão explícita é aplicada.
+5. Compra offline persiste após fechar e reabrir o app.
+6. Reconexão após horas e token expirado reaplica a fila.
+7. Mesmo UUID de operação não duplica dados nem auditoria.
+8. Convite expirado é rejeitado.
+9. Convite revogado é rejeitado.
+10. Visualizador não consegue editar por RPC nem REST direto.
+11. Participante removido não consegue ler/escrever no servidor.
+12. Exclusão offline permanece excluída após reconexão de outro aparelho.
+13. Atualização de APK preserva alterações pendentes e sessão.
+14. Migração de banco preserva listas, itens e fila.
+
+## Riscos conhecidos
+
+Realtime ainda usa snapshots paginados, com reconciliação periódica, e não foi testado contra um projeto Supabase. Não habilitar colaboração para dados importantes antes dos testes de aceite. Backups preservam registros existentes, mas não substituem um backup integral do estado de sincronização. A assinatura do APK protege a cadeia de atualização; guarde a chave e as senhas fora do GitHub.

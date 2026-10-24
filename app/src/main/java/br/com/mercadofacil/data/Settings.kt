@@ -7,9 +7,9 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
 private val Context.store by preferencesDataStore("settings")
-data class AppSettings(val theme: String = "auto", val repository: String = "", val supabaseUrl: String = "", val supabaseKey: String = "", val notifications: Boolean = true, val lastCheck: Long = 0, val intervalHours: Int = 12)
+data class AppSettings(val theme: String = "auto", val repository: String = br.com.mercadofacil.BuildConfig.UPDATE_REPOSITORY, val supabaseUrl: String = "", val supabaseKey: String = "", val notifications: Boolean = true, val lastCheck: Long = 0, val intervalHours: Int = 12)
 class Settings(private val context: Context) {
-    val flow = context.store.data.map { p -> AppSettings(p[stringPreferencesKey("theme")] ?: "auto", p[stringPreferencesKey("repository")] ?: "", p[stringPreferencesKey("url")] ?: "", p[stringPreferencesKey("key")] ?: "", p[booleanPreferencesKey("notifications")] ?: true, p[longPreferencesKey("lastCheck")] ?: 0, p[intPreferencesKey("interval")] ?: 12) }
+    val flow = context.store.data.map { p -> AppSettings(p[stringPreferencesKey("theme")] ?: "auto", p[stringPreferencesKey("repository")] ?: br.com.mercadofacil.BuildConfig.UPDATE_REPOSITORY, p[stringPreferencesKey("url")] ?: "", p[stringPreferencesKey("key")] ?: "", p[booleanPreferencesKey("notifications")] ?: true, p[longPreferencesKey("lastCheck")] ?: 0, p[intPreferencesKey("interval")] ?: 12) }
     suspend fun get() = flow.first()
     suspend fun save(value: AppSettings) { context.store.edit {
         it[stringPreferencesKey("theme")] = value.theme

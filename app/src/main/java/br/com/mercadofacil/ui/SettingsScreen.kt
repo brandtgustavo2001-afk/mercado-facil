@@ -37,6 +37,7 @@ import java.util.Date
     var key by remember(config.supabaseKey) { mutableStateOf(config.supabaseKey) }
     var loginEmail by remember { mutableStateOf("") }; var password by remember { mutableStateOf("") }; var name by remember { mutableStateOf("") }
     var category by remember { mutableStateOf("") }
+    var reminderHours by remember { mutableStateOf("24") }
     var release by remember { mutableStateOf<Release?>(null) }; var checked by remember { mutableStateOf("") }; var checking by remember { mutableStateOf(false) }
     var progress by remember { mutableStateOf<Float?>(null) }; var download by remember { mutableStateOf<Job?>(null) }; var apk by remember { mutableStateOf<File?>(null) }
     var importData by remember { mutableStateOf<String?>(null) }
@@ -58,6 +59,11 @@ import java.util.Date
         Text("Aparência", style = MaterialTheme.typography.titleMedium)
         Choice("Tema", config.theme, listOf("auto", "light", "dark")) { vm.run { vm.app.settings.save(config.copy(theme = it)) } }
         Row { Checkbox(config.notifications, { enabled -> vm.run { vm.app.settings.save(config.copy(notifications = enabled)) }; if (enabled && Build.VERSION.SDK_INT >= 33) notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS) }); Text("Receber notificações", Modifier.padding(top = 12.dp)) }
+        Field("Lembrar de comprar em quantas horas?", reminderHours, { reminderHours = it }, true)
+        Row {
+            TextButton(onClick = { vm.run { br.com.mercadofacil.notifications.ReminderWorker.schedule(context, reminderHours.toLong()); if (Build.VERSION.SDK_INT >= 33) notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS); vm.message.value = "Lembrete agendado. O Android pode ajustar o horário para economizar bateria." } }) { Text("Agendar lembrete") }
+            TextButton(onClick = { br.com.mercadofacil.notifications.ReminderWorker.cancel(context); vm.message.value = "Lembrete cancelado" }) { Text("Cancelar") }
+        }
         HorizontalDivider()
         Text("Dados e backups", style = MaterialTheme.typography.titleMedium)
         Button(onClick = { export.launch("mercado-facil-backup.json") }) { Text("Exportar backup") }

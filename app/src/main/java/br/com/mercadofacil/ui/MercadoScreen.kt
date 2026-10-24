@@ -166,10 +166,20 @@ import java.util.Locale
     Box { OutlinedButton(onClick = { open = true }) { Text("$label: $value") }; DropdownMenu(open, { open = false }) { options.forEach { option -> DropdownMenuItem(text = { Text(option) }, onClick = { change(option); open = false }) } } }
 }
 @Composable fun ItemEditor(vm: MainViewModel, item: ShoppingItem, dismiss: () -> Unit, save: (ShoppingItem) -> Unit, delete: () -> Unit) {
+    val scanContext = LocalContext.current
     var name by remember { mutableStateOf(item.name) }; var quantity by remember { mutableStateOf(item.quantity.replace('.', ',')) }; var price by remember { mutableStateOf(Money.input(item.estimatedCents)) }; var actual by remember { mutableStateOf(item.actualCents?.let { Money.input(it) } ?: "") }; var unit by remember { mutableStateOf(item.unit) }; var category by remember { mutableStateOf(item.category) }; var brand by remember { mutableStateOf(item.brand) }; var notes by remember { mutableStateOf(item.notes) }; var favorite by remember { mutableStateOf(item.favorite) }; var error by remember { mutableStateOf<String?>(null) }
     val categories by vm.categories.collectAsStateWithLifecycle()
     val allItems by vm.items.collectAsStateWithLifecycle()
     AlertDialog(onDismissRequest = dismiss, title = { Text(if (item.name.isBlank()) "Adicionar produto" else "Editar produto") }, text = { Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        OutlinedButton(onClick = {
+            com.google.mlkit.vision.codescanner.GmsBarcodeScanning.getClient(scanContext).startScan()
+                .addOnSuccessListener { barcode -> vm.run {
+                    val code = barcode.rawValue ?: error("Código não reconhecido")
+                    notes = "Código: $code"
+                    try { val found = br.com.mercadofacil.network.ProductLookup.name(code); if (found != null) name = found else error = "Produto não encontrado. Preencha o nome manualmente." }
+                    catch (e: Exception) { error = "Sem consulta disponível. Preencha o nome manualmente." }
+                } }.addOnFailureListener { error = "Leitor indisponível. Cadastre o produto manualmente." }
+        }) { Text("Ler código de barras") }
         Field("Produto", name, { name = it })
         if (item.name.isBlank() && name.length >= 2) allItems.filter { it.name.contains(name, true) }.distinctBy { it.name }.take(3).forEach { old -> TextButton(onClick = { name = old.name; price = Money.input(old.actualCents ?: old.estimatedCents); category = old.category; unit = old.unit }) { Text("${old.name} · último ${Money.format(old.actualCents ?: old.estimatedCents)}") } }
         Field("Quantidade", quantity, { quantity = it }, true); Choice("Unidade", unit, units) { unit = it }; Field("Preço previsto por unidade (R$)", price, { price = it }, true); Field("Preço real por unidade (opcional)", actual, { actual = it }, true)
