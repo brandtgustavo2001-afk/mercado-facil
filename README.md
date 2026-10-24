@@ -78,6 +78,8 @@ Configure os quatro Secrets no GitHub → Settings → Secrets and variables →
 | `SIGNING_KEY_ALIAS` | Alias da chave |
 | `SIGNING_KEY_PASSWORD` | Senha da chave |
 
+Neste repositório, os quatro Secrets já foram configurados com a chave local da entrega inicial. O utilitário `tools/configure_github_signing.py` permite repetir a configuração usando uma sessão autorizada do Git Credential Manager e PyNaCl; ele cifra os valores com a chave pública do GitHub e não exibe credenciais.
+
 Para compilação manual, forneça `SIGNING_STORE_FILE`, `SIGNING_STORE_PASSWORD`, `SIGNING_KEY_ALIAS`, `SIGNING_KEY_PASSWORD` por variáveis de ambiente, sem colocá-las no Git.
 
 ```powershell

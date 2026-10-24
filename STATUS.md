@@ -7,6 +7,9 @@ Este projeto é uma primeira implementação funcional, **não a conclusão inte
 - Compilação do APK debug e do APK de testes de instrumentação.
 - Quinze testes unitários: centavos/quantidades, comparação SemVer, patch de sincronização e restrição de URLs de atualização.
 - Android Lint sem erros; há avisos de atualização de dependências e recomendações.
+- APK release 1.0.0/10000 compilado e assinatura APK v2 validada por `apksigner`.
+- Repositório público criado, código enviado e pré-release 1.0.0 publicada com APK e SHA-256.
+- Quatro Actions Secrets de assinatura configurados de forma criptografada; chave local fora do checkout.
 
 ## Implementado, com validação externa pendente
 
@@ -15,7 +18,7 @@ Este projeto é uma primeira implementação funcional, **não a conclusão inte
 - Atualizador: consulta pública, download, checksum, pacote, assinatura, versionCode e PackageInstaller.
 - Leitor por Google Play Services e consulta Open Food Facts, com cadastro manual.
 - Lembretes e checagem de updates via WorkManager.
-- Workflow de release assinado: depende dos GitHub Secrets.
+- Workflow de release assinado: Secrets configurados; execução em GitHub Actions em validação.
 
 ## Ainda necessário para cumprir integralmente o escopo
 
