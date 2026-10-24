@@ -28,6 +28,10 @@ Lembretes usam WorkManager e podem sofrer atraso pelo gerenciamento de bateria d
 
 ## Supabase
 
+O APK 1.0.1 já inclui a URL e a chave **publishable** do projeto `igehbjnutmhkqfdlrndx`. O esquema foi aplicado e os testes SQL de RPCs/RLS passaram. Para usar, abra Ajustes, crie uma conta do aplicativo e confirme o e-mail. A conta usada para administrar o painel Supabase pelo GitHub é separada das contas dos usuários do aplicativo.
+
+Não execute a migração inicial novamente nesse projeto. Os passos abaixo são para configurar outro projeto novo.
+
 1. Crie um projeto Supabase e execute `supabase/migrations/001_initial.sql` no SQL Editor **em um projeto novo**.
 2. Habilite e-mail/senha em Auth e configure SMTP, confirmação de e-mail e a página de recuperação no painel Supabase. O aplicativo solicita o e-mail de recuperação; a troca de senha ocorre no fluxo web configurado no Supabase.
 3. Em Ajustes no app, informe a URL HTTPS e a chave pública `anon` ou `publishable`. **Nunca use `service_role`, senha de banco ou `sb_secret_`.**
@@ -37,7 +41,7 @@ Lembretes usam WorkManager e podem sofrer atraso pelo gerenciamento de bateria d
 
 A UI lê apenas Room. Gravações locais e a fila são transacionais. RPCs usam UUID idempotente, lock por lista, comparação dos campos com os valores de base e auditoria no servidor. Alterações independentes mesclam; campos divergentes ficam em conflito e exigem escolha explícita em Ajustes. Exclusões são tombstones retidos indefinidamente nesta versão, evitando ressurreição por aparelhos antigos.
 
-Em um projeto Supabase descartável, rode `supabase/tests/sync_acceptance.sql` após a migração para testar as RPCs e as políticas RLS. O script insere usuários de teste e faz rollback ao terminar. Ele ainda não foi executado nesta entrega, por falta de backend configurado.
+Em um projeto Supabase de testes, rode `supabase/tests/sync_acceptance.sql` após a migração para testar as RPCs e as políticas RLS. O script insere usuários temporários e faz rollback ao terminar. Os testes passaram no projeto configurado, e a ausência de registros temporários foi verificada.
 
 Realtime sinaliza alterações e o motor busca os registros autorizados, em páginas, atualizando Room. Há reconexão com backoff e refresh da sessão. A fila também roda pelo WorkManager. O cache compartilhado fica disponível offline; revogação é aplicada quando o cliente consegue consultar o servidor. Acesso remoto é bloqueado imediatamente pelas políticas. A implementação atual reconsulta snapshots e ainda não usa cursor incremental durável: veja STATUS.
 
@@ -69,7 +73,7 @@ Para criar a primeira chave local e compilar um release:
 python tools/build_release.py
 ```
 
-A chave e as senhas ficam **fora do repositório**, em `~/.codex/secrets/mercado-facil`. Faça backup seguro dessa pasta; perder a chave impede atualizar instalações existentes. O script não imprime senhas e reutiliza a chave nas próximas execuções. O arquivo `tools/build_release.py` gera a versão inicial 1.0.0; para outras versões use Gradle com os parâmetros abaixo.
+A chave e as senhas ficam **fora do repositório**, em `~/.codex/secrets/mercado-facil`. Faça backup seguro dessa pasta; perder a chave impede atualizar instalações existentes. O script não imprime senhas e reutiliza a chave nas próximas execuções. O arquivo `tools/build_release.py` gera a versão 1.0.1 por padrão; use `--version` e `--code` para selecionar outra versão.
 
 Configure os quatro Secrets no GitHub → Settings → Secrets and variables → Actions:
 

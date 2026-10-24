@@ -72,7 +72,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release view "$GITHUB_REF_NAME" || gh release create "$GITHUB_REF_NAME" --generate-notes
+          gh release view "$GITHUB_REF_NAME" || gh release create "$GITHUB_REF_NAME" --generate-notes --prerelease
           gh release upload "$GITHUB_REF_NAME" "mercado-facil-$VERSION.apk" "mercado-facil-$VERSION.apk.sha256" --clobber
       - if: always()
         run: rm -f "$SIGNING_STORE_FILE"

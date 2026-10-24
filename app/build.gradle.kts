@@ -13,9 +13,11 @@ android {
         applicationId = "br.com.mercadofacil"
         minSdk = 26
         targetSdk = 36
-        versionCode = providers.gradleProperty("versionCode").orElse("1").get().toInt()
-        versionName = providers.gradleProperty("versionName").orElse("1.0.0").get()
+        versionCode = providers.gradleProperty("versionCode").orElse("10001").get().toInt()
+        versionName = providers.gradleProperty("versionName").orElse("1.0.1").get()
         buildConfigField("String", "UPDATE_REPOSITORY", "\"brandtgustavo2001-afk/mercado-facil\"")
+        buildConfigField("String", "SUPABASE_URL", "\"https://igehbjnutmhkqfdlrndx.supabase.co\"")
+        buildConfigField("String", "SUPABASE_PUBLIC_KEY", "\"sb_publishable_sev643ZP8Ctxocw5uL3f7A_rgGrZska\"")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     signingConfigs {

@@ -9,6 +9,12 @@ from pathlib import Path
 import secrets
 import subprocess
 import sys
+import argparse
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--version', default='1.0.1')
+parser.add_argument('--code', type=int, default=10001)
+args = parser.parse_args()
 
 root = Path(__file__).resolve().parents[1]
 secret_dir = Path.home() / '.codex' / 'secrets' / 'mercado-facil'
@@ -33,6 +39,6 @@ if not credentials.exists():
 config = json.loads(credentials.read_text(encoding='utf-8'))
 env = dict(os.environ, SIGNING_STORE_FILE=str(keystore), SIGNING_STORE_PASSWORD=config['storePassword'], SIGNING_KEY_PASSWORD=config['keyPassword'], SIGNING_KEY_ALIAS=config['keyAlias'])
 wrapper = str(root / ('gradlew.bat' if os.name == 'nt' else 'gradlew'))
-subprocess.run([wrapper, 'assembleRelease', '-PversionName=1.0.0', '-PversionCode=10000', '--console=plain'], cwd=root, env=env, check=True)
+subprocess.run([wrapper, 'assembleRelease', f'-PversionName={args.version}', f'-PversionCode={args.code}', '--console=plain'], cwd=root, env=env, check=True)
 print('APK: app/build/outputs/apk/release/app-release.apk')
 print('Guarde uma cópia segura da chave e das credenciais em: ' + str(secret_dir))

@@ -5,12 +5,15 @@ Este projeto é uma primeira implementação funcional, **não a conclusão inte
 ## Verificado no ambiente local
 
 - Compilação do APK debug e do APK de testes de instrumentação.
-- Dezenove testes automatizados: centavos/quantidades, comparação SemVer, patch de sincronização, URLs de atualização e quatro testes reais de Room/SQLite em Robolectric (persistência, backup idempotente, fila transacional e rollback).
+- Vinte testes automatizados: centavos/quantidades, comparação SemVer, patch de sincronização, URLs de atualização, quatro testes reais de Room/SQLite em Robolectric e configuração automática do backend após atualizar uma instalação antiga.
 - Android Lint sem erros; há avisos de atualização de dependências e recomendações.
 - APK release 1.0.0/10000 compilado e assinatura APK v2 validada por `apksigner`.
+- APK release 1.0.1/10001 compilado e assinatura verificada, com conexão Supabase pública pré-configurada; o esquema Room permanece na versão 1.
 - Repositório público criado, código enviado e pré-release 1.0.0 publicada com APK e SHA-256.
 - Quatro Actions Secrets de assinatura configurados de forma criptografada; chave local fora do checkout.
-- Script SQL de aceite em `supabase/tests/sync_acceptance.sql`, ainda não executado: idempotência, merges, conflitos, marcação de compra, viewer, acesso revogado, convites e tombstones.
+- Migração aplicada ao projeto Supabase `igehbjnutmhkqfdlrndx`: oito tabelas com RLS e três tabelas publicadas no Realtime.
+- Script SQL de aceite executado com sucesso no Supabase: idempotência, merges, conflitos, marcação de compra, viewer, acesso revogado, convites e tombstones. Rollback confirmado: zero usuários temporários e zero listas de teste restantes.
+- Auth por e-mail habilitado, confirmação de e-mail mantida e chave publishable configurada no app. Nenhuma chave administrativa no APK.
 
 ## Implementado, com validação externa pendente
 
@@ -23,7 +26,7 @@ Este projeto é uma primeira implementação funcional, **não a conclusão inte
 
 ## Ainda necessário para cumprir integralmente o escopo
 
-- Conectar um Supabase real, aplicar SQL e executar a matriz abaixo em dois aparelhos.
+- Executar a matriz abaixo em dois aparelhos usando o Supabase já configurado; os testes das RPCs e RLS no banco já passaram.
 - Executar testes instrumentados em dispositivo/emulador; o ambiente não tem aparelho conectado.
 - Verificar atualização 1.0.0 → 1.1.0 assinada, com preservação do banco, sessão e fila.
 - Testes instrumentados específicos de migração de esquema, testes de download interrompido/corrompido e assinatura incompatível.
@@ -58,4 +61,4 @@ Cada cenário deve produzir evidência em dispositivo e no servidor antes de dec
 
 ## Riscos conhecidos
 
-Realtime ainda usa snapshots paginados, com reconciliação periódica, e não foi testado contra um projeto Supabase. Não habilitar colaboração para dados importantes antes dos testes de aceite. Backups preservam registros existentes, mas não substituem um backup integral do estado de sincronização. A assinatura do APK protege a cadeia de atualização; guarde a chave e as senhas fora do GitHub.
+Realtime ainda usa snapshots paginados, com reconciliação periódica. As RPCs e políticas foram testadas em um projeto Supabase real; o fluxo Android entre dois aparelhos e o WebSocket ainda precisam de validação. Backups preservam registros existentes, mas não substituem um backup integral do estado de sincronização. A assinatura do APK protege a cadeia de atualização; guarde a chave e as senhas fora do GitHub.

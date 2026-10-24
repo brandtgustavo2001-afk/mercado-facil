@@ -80,14 +80,16 @@ create function public.apply_operation(op_id uuid, entity text, entity_id uuid, 
 returns jsonb language plpgsql security definer set search_path = '' as $$
 declare
   actor uuid := auth.uid(); current_data jsonb; merged jsonb; field text;
-  previous jsonb; current_version bigint; allowed text[]; current_role text;
+  previous jsonb; current_version bigint; allowed text[]; access_role text;
 begin
   if actor is null then raise exception 'Autenticação necessária'; end if;
-  if entity not in ('list','item') or jsonb_typeof(patch) <> 'object' or jsonb_typeof(base) <> 'object' or octet_length(patch::text)>16000 then raise exception 'Operação inválida'; end if;
+  if op_id is null or entity_id is null or target_list is null or entity is null or entity not in ('list','item')
+    or jsonb_typeof(patch) is distinct from 'object' or jsonb_typeof(base) is distinct from 'object'
+    or octet_length(patch::text)>16000 or octet_length(base::text)>16000 then raise exception 'Operação inválida'; end if;
   -- One transaction per list serializes permission, idempotency and field comparisons.
   perform pg_advisory_xact_lock(hashtextextended(target_list::text,0));
-  current_role := public.member_role(target_list);
-  if exists(select 1 from public.shopping_lists where id=target_list) and coalesce(current_role,'') not in ('owner','editor') then raise exception 'Sem permissão de edição'; end if;
+  access_role := public.member_role(target_list);
+  if exists(select 1 from public.shopping_lists where id=target_list) and coalesce(access_role,'') not in ('owner','editor') then raise exception 'Sem permissão de edição'; end if;
   select result into previous from public.applied_operations where operation_id=op_id and actor_id=actor and list_id=target_list;
   if found then return previous; end if;
   if exists(select 1 from public.applied_operations where operation_id=op_id) then raise exception 'UUID de operação reutilizado'; end if;
@@ -96,7 +98,7 @@ begin
     allowed := array['id','name','description','market','budget_cents','status','deleted'];
     select data,version into current_data,current_version from public.shopping_lists where id=entity_id for update;
   else
-    if current_role is null then raise exception 'Sem acesso à lista'; end if;
+    if access_role is null then raise exception 'Sem acesso à lista'; end if;
     if exists(select 1 from public.shopping_lists where id=target_list and data->>'deleted'='true') then raise exception 'Lista excluída'; end if;
     allowed := array['id','list_id','name','quantity','unit','estimated_cents','actual_cents','category','brand','notes','purchased','deleted'];
     select data,version into current_data,current_version from public.shopping_items where id=entity_id and list_id=target_list for update;
@@ -110,8 +112,11 @@ begin
   end loop;
   if current_data->>'deleted'='true' and coalesce(patch->>'deleted','true')<>'true' then raise exception 'Registro excluído não pode reaparecer'; end if;
   merged := coalesce(current_data,'{}'::jsonb)||patch;
+  if jsonb_typeof(merged->'id') is distinct from 'string' or jsonb_typeof(merged->'name') is distinct from 'string'
+    or jsonb_typeof(merged->'deleted') is distinct from 'boolean' then raise exception 'Campos obrigatórios inválidos'; end if;
   if merged->>'id'<>entity_id::text or merged->>'id' is null or coalesce(length(trim(merged->>'name')),0) not between 1 and 200 then raise exception 'Identidade/nome inválido'; end if;
   if entity='list' then
+    if jsonb_typeof(merged->'budget_cents') is distinct from 'number' or jsonb_typeof(merged->'status') is distinct from 'string' then raise exception 'Orçamento e status obrigatórios'; end if;
     if (merged->>'budget_cents')::numeric not between 0 and 900000000000 or (merged->>'budget_cents')::numeric<>trunc((merged->>'budget_cents')::numeric) or merged->>'status' not in ('active','completed','archived') then raise exception 'Valores da lista inválidos'; end if;
     if current_data is null then
       insert into public.shopping_lists(id,owner_id,data) values(entity_id,actor,merged);
@@ -120,6 +125,12 @@ begin
       update public.shopping_lists set data=merged,version=version+1,updated_at=now() where id=entity_id;
     end if;
   else
+    if jsonb_typeof(merged->'list_id') is distinct from 'string' or jsonb_typeof(merged->'quantity') is distinct from 'string'
+      or (merged->>'quantity') !~ '^[0-9]{1,7}(\.[0-9]{1,3})?$'
+      or jsonb_typeof(merged->'estimated_cents') is distinct from 'number'
+      or (merged ? 'actual_cents' and jsonb_typeof(merged->'actual_cents') not in ('number','null'))
+      or jsonb_typeof(merged->'purchased') is distinct from 'boolean'
+      or coalesce(merged->>'unit','') not in ('un','kg','g','L','ml','pct','cx','dz','m') then raise exception 'Campos do produto inválidos'; end if;
     if merged->>'list_id' is distinct from target_list::text or (merged->>'quantity')::numeric not between 0.001 and 1000000
       or (merged->>'estimated_cents')::numeric not between 0 and 900000000000
       or (merged->>'estimated_cents')::numeric<>trunc((merged->>'estimated_cents')::numeric)
@@ -182,3 +193,4 @@ grant execute on function public.apply_operation(uuid,text,uuid,uuid,jsonb,jsonb
 
 alter publication supabase_realtime add table public.shopping_lists,public.shopping_items,public.list_members;
 commit;
+
