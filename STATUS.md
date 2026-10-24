@@ -5,11 +5,12 @@ Este projeto é uma primeira implementação funcional, **não a conclusão inte
 ## Verificado no ambiente local
 
 - Compilação do APK debug e do APK de testes de instrumentação.
-- Quinze testes unitários: centavos/quantidades, comparação SemVer, patch de sincronização e restrição de URLs de atualização.
+- Dezenove testes automatizados: centavos/quantidades, comparação SemVer, patch de sincronização, URLs de atualização e quatro testes reais de Room/SQLite em Robolectric (persistência, backup idempotente, fila transacional e rollback).
 - Android Lint sem erros; há avisos de atualização de dependências e recomendações.
 - APK release 1.0.0/10000 compilado e assinatura APK v2 validada por `apksigner`.
 - Repositório público criado, código enviado e pré-release 1.0.0 publicada com APK e SHA-256.
 - Quatro Actions Secrets de assinatura configurados de forma criptografada; chave local fora do checkout.
+- Script SQL de aceite em `supabase/tests/sync_acceptance.sql`, ainda não executado: idempotência, merges, conflitos, marcação de compra, viewer, acesso revogado, convites e tombstones.
 
 ## Implementado, com validação externa pendente
 

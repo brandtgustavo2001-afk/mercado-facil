@@ -37,6 +37,8 @@ Lembretes usam WorkManager e podem sofrer atraso pelo gerenciamento de bateria d
 
 A UI lê apenas Room. Gravações locais e a fila são transacionais. RPCs usam UUID idempotente, lock por lista, comparação dos campos com os valores de base e auditoria no servidor. Alterações independentes mesclam; campos divergentes ficam em conflito e exigem escolha explícita em Ajustes. Exclusões são tombstones retidos indefinidamente nesta versão, evitando ressurreição por aparelhos antigos.
 
+Em um projeto Supabase descartável, rode `supabase/tests/sync_acceptance.sql` após a migração para testar as RPCs e as políticas RLS. O script insere usuários de teste e faz rollback ao terminar. Ele ainda não foi executado nesta entrega, por falta de backend configurado.
+
 Realtime sinaliza alterações e o motor busca os registros autorizados, em páginas, atualizando Room. Há reconexão com backoff e refresh da sessão. A fila também roda pelo WorkManager. O cache compartilhado fica disponível offline; revogação é aplicada quando o cliente consegue consultar o servidor. Acesso remoto é bloqueado imediatamente pelas políticas. A implementação atual reconsulta snapshots e ainda não usa cursor incremental durável: veja STATUS.
 
 O SQL usa JSONB para os campos mutáveis e colunas relacionais para identidade, autorização e versão. Isso permite comparação por campo na RPC, mas difere das colunas individuais propostas no briefing. Não aplique a migração cegamente a um esquema já existente.
