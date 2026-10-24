@@ -20,4 +20,12 @@ class Settings(private val context: Context) {
         it[intPreferencesKey("interval")] = value.intervalHours.coerceIn(1, 168)
     } }
     suspend fun checked() { context.store.edit { it[longPreferencesKey("lastCheck")] = System.currentTimeMillis() } }
+    suspend fun cachedRelease(repository: String): String? {
+        val prefs = context.store.data.first()
+        return prefs[stringPreferencesKey("cachedRelease")].takeIf { prefs[stringPreferencesKey("cachedReleaseRepo")] == repository }
+    }
+    suspend fun cacheRelease(repository: String, body: String?) { context.store.edit {
+        it[stringPreferencesKey("cachedReleaseRepo")] = repository
+        if (body == null) it.remove(stringPreferencesKey("cachedRelease")) else it[stringPreferencesKey("cachedRelease")] = body
+    } }
 }

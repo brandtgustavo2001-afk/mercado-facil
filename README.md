@@ -60,6 +60,10 @@ mercado-facil-1.0.1.apk.sha256
 
 O `.sha256` usa o formato do `sha256sum`. O aplicativo consulta `/releases/latest`, compara SemVer numericamente, mostra as notas, baixa com progresso e cancelamento, valida SHA-256, applicationId, assinatura e versionCode, e abre uma sessão PackageInstaller. A autorização de origem desconhecida e a confirmação do Android continuam obrigatórias. Depois de autorizar a origem, volte ao app e toque em Instalar novamente.
 
+A partir da 1.0.2, o aviso automático oferece **Atualizar agora** e continua a instalação após a autorização de origem. A verificação usa um intervalo de 12 horas por padrão; a consulta manual em Ajustes ignora o intervalo. Atualizações já encontradas ficam em cache durante esse período. Na 1.0.1, use Ajustes → Verificar atualizações para obter a 1.0.2; o fluxo antigo pede baixar e depois instalar.
+
+As versões do canal automático precisam ser releases normais: GitHub não inclui pré-releases em `/releases/latest`. O workflow cria um rascunho, envia APK/checksum e então publica a release normal. Não remova esses arquivos de uma versão já publicada.
+
 A assinatura precisa ser **a mesma em todas as versões**. Proteção criptográfica final vem da chave de assinatura Android; checksum e APK na mesma release não substituem essa verificação. Esta versão aceita assinantes idênticos, sem rotação de chave.
 
 O banco não usa migração destrutiva. Ao mudar o esquema, incremente a versão Room, adicione uma `Migration` explícita e mantenha os JSONs em `app/schemas`. Antes de publicar, teste a atualização com listas, sessão e fila pendente no aparelho.
@@ -73,7 +77,7 @@ Para criar a primeira chave local e compilar um release:
 python tools/build_release.py
 ```
 
-A chave e as senhas ficam **fora do repositório**, em `~/.codex/secrets/mercado-facil`. Faça backup seguro dessa pasta; perder a chave impede atualizar instalações existentes. O script não imprime senhas e reutiliza a chave nas próximas execuções. O arquivo `tools/build_release.py` gera a versão 1.0.1 por padrão; use `--version` e `--code` para selecionar outra versão.
+A chave e as senhas ficam **fora do repositório**, em `~/.codex/secrets/mercado-facil`. Faça backup seguro dessa pasta; perder a chave impede atualizar instalações existentes. O script não imprime senhas e reutiliza a chave nas próximas execuções. O arquivo `tools/build_release.py` gera a versão 1.0.2 por padrão; use `--version` e `--code` para selecionar outra versão.
 
 Configure os quatro Secrets no GitHub → Settings → Secrets and variables → Actions:
 

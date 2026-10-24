@@ -48,11 +48,11 @@ import java.util.Locale
     val dark = settings.theme == "dark" || settings.theme == "auto" && isSystemInDarkTheme()
     val colors = if (dark) darkColorScheme(primary = Color(0xFF69D5AC), background = Color(0xFF111B18), surface = Color(0xFF192822)) else lightColorScheme(primary = Color(0xFF087E58), secondary = Color(0xFF507A65), background = Color(0xFFF4F7F4), surface = Color.White, primaryContainer = Color(0xFFD3F3E4))
     LaunchedEffect(message) { message?.let { snackbar.showSnackbar(it); vm.message.value = null } }
-    LaunchedEffect(Unit) { runCatching { br.com.mercadofacil.updater.Updater(vm.app).check()?.let { vm.message.value = "Versão ${it.version} disponível em Configurações" } } }
     LaunchedEffect(Unit) { vm.app.sync.watch() }
     val current = lists.find { it.id == selected }
     BackHandler(selected != null) { selected = null }
     MaterialTheme(colorScheme = colors) {
+        UpdatePrompt(vm)
         Scaffold(
             snackbarHost = { SnackbarHost(snackbar) },
             topBar = { TopAppBar(title = { Column { Text(current?.name ?: "Mercado Fácil", fontWeight = FontWeight.Bold); Text(if (current?.shared == true) syncStatus else "Compras organizadas. Vida mais leve.", style = MaterialTheme.typography.labelMedium) } }, navigationIcon = { if (selected != null) IconButton(onClick = { selected = null }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Voltar") } }, actions = { if (current != null) IconButton(onClick = { sharing = current }) { Icon(Icons.Default.Share, "Compartilhar") } }) },

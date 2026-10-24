@@ -29,26 +29,16 @@ class Updater(private val context: Context) {
         val settings = (context.applicationContext as MercadoApp).settings
         val config = settings.get()
         require(Regex("[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+").matches(config.repository)) { "Configure o repositório GitHub (usuário/repositório)" }
-        if (!force && System.currentTimeMillis() - config.lastCheck < config.intervalHours * 3600000L) return@withContext null
-        val body = client.newCall(request("https://api.github.com/repos/${config.repository}/releases/latest")).execute().use {
-            require(it.isSuccessful) { "GitHub: HTTP ${it.code}" }; requireNotNull(it.body).string()
+        if (!force && System.currentTimeMillis() - config.lastCheck < config.intervalHours * 3600000L) {
+            return@withContext settings.cachedRelease(config.repository)?.let { parseRelease(JSONObject(it), config.repository, BuildConfig.VERSION_NAME) }
         }
-        val json = JSONObject(body)
-        require(!json.optBoolean("draft") && !json.optBoolean("prerelease"))
-        val tag = json.getString("tag_name")
-        val version = SemVersion.parse(tag)
+        val body = client.newCall(request("https://api.github.com/repos/${config.repository}/releases/latest")).execute().use {
+            require(it.isSuccessful) { if (it.code == 404) "Nenhuma release publicada no canal de atualização. Pré-releases não são oferecidas automaticamente." else "GitHub: HTTP ${it.code}" }; requireNotNull(it.body).string()
+        }
+        val release = parseRelease(JSONObject(body), config.repository, BuildConfig.VERSION_NAME)
+        settings.cacheRelease(config.repository, body.takeIf { release != null })
         settings.checked()
-        if (version <= SemVersion.parse(BuildConfig.VERSION_NAME)) return@withContext null
-        val assets = json.getJSONArray("assets")
-        val expected = "mercado-facil-${tag.removePrefix("v")}.apk"
-        fun asset(name: String): JSONObject = (0 until assets.length()).map { assets.getJSONObject(it) }.singleOrNull { it.getString("name") == name } ?: error("Release sem $name")
-        val apk = asset(expected)
-        require(apk.getString("content_type") in listOf("application/vnd.android.package-archive", "application/octet-stream"))
-        val checksum = asset("$expected.sha256")
-        val apkUrl = apk.getString("browser_download_url")
-        val checksumUrl = checksum.getString("browser_download_url")
-        require(validAssetUrl(apkUrl, config.repository, tag, expected) && validAssetUrl(checksumUrl, config.repository, tag, "$expected.sha256")) { "Origem da atualização inválida" }
-        Release(tag.removePrefix("v"), json.optString("body"), expected, apkUrl, checksumUrl, config.repository, tag)
+        release
     }
     suspend fun download(release: Release, progress: (Float) -> Unit): File = withContext(Dispatchers.IO) {
         val file = File(context.cacheDir, "update.apk")
@@ -125,6 +115,20 @@ class Updater(private val context: Context) {
         return true
     }
     companion object {
+        fun parseRelease(json: JSONObject, repository: String, installedVersion: String): Release? {
+            if (json.optBoolean("draft") || json.optBoolean("prerelease")) return null
+            val tag = json.getString("tag_name")
+            if (SemVersion.parse(tag) <= SemVersion.parse(installedVersion)) return null
+            val assets = json.getJSONArray("assets")
+            val expected = "mercado-facil-${tag.removePrefix("v")}.apk"
+            fun asset(name: String): JSONObject = (0 until assets.length()).map { assets.getJSONObject(it) }.singleOrNull { it.getString("name") == name } ?: error("Release sem $name")
+            val apk = asset(expected)
+            require(apk.getString("content_type") in listOf("application/vnd.android.package-archive", "application/octet-stream"))
+            val apkUrl = apk.getString("browser_download_url")
+            val checksumUrl = asset("$expected.sha256").getString("browser_download_url")
+            require(validAssetUrl(apkUrl, repository, tag, expected) && validAssetUrl(checksumUrl, repository, tag, "$expected.sha256")) { "Origem da atualização inválida" }
+            return Release(tag.removePrefix("v"), json.optString("body"), expected, apkUrl, checksumUrl, repository, tag)
+        }
         fun validAssetUrl(url: String, repo: String, tag: String, file: String): Boolean {
             val uri = runCatching { java.net.URI(url) }.getOrNull() ?: return false
             return uri.scheme == "https" && uri.host == "github.com" && uri.userInfo == null && uri.query == null && uri.fragment == null && uri.path == "/$repo/releases/download/$tag/$file"

@@ -5,7 +5,7 @@ Este projeto é uma primeira implementação funcional, **não a conclusão inte
 ## Verificado no ambiente local
 
 - Compilação do APK debug e do APK de testes de instrumentação.
-- Vinte testes automatizados: centavos/quantidades, comparação SemVer, patch de sincronização, URLs de atualização, quatro testes reais de Room/SQLite em Robolectric e configuração automática do backend após atualizar uma instalação antiga.
+- Vinte e oito testes automatizados: cálculos, SemVer, sincronização, Room/SQLite, configuração do backend, seleção segura de releases e cache de atualizações por repositório.
 - Android Lint sem erros; há avisos de atualização de dependências e recomendações.
 - APK release 1.0.0/10000 compilado e assinatura APK v2 validada por `apksigner`.
 - APK release 1.0.1/10001 compilado e assinatura verificada, com conexão Supabase pública pré-configurada; o esquema Room permanece na versão 1.
@@ -14,6 +14,8 @@ Este projeto é uma primeira implementação funcional, **não a conclusão inte
 - Migração aplicada ao projeto Supabase `igehbjnutmhkqfdlrndx`: oito tabelas com RLS e três tabelas publicadas no Realtime.
 - Script SQL de aceite executado com sucesso no Supabase: idempotência, merges, conflitos, marcação de compra, viewer, acesso revogado, convites e tombstones. Rollback confirmado: zero usuários temporários e zero listas de teste restantes.
 - Auth por e-mail habilitado, confirmação de e-mail mantida e chave publishable configurada no app. Nenhuma chave administrativa no APK.
+- Corrigida a causa da ausência de atualização: releases estavam marcadas como pré-release e `/releases/latest` retornava 404. A 1.0.1 foi disponibilizada no canal normal; o workflow foi corrigido para publicar releases completas nesse canal.
+- Versão 1.0.2 acrescenta aviso de atualização acionável na abertura/retorno ao app e cache da versão encontrada. A confirmação do instalador Android continua obrigatória.
 
 ## Implementado, com validação externa pendente
 
