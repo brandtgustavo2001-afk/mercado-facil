@@ -18,6 +18,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
@@ -28,6 +29,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import br.com.mercadofacil.R
@@ -152,33 +154,30 @@ import java.util.Locale
                                 color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
-                    Column(Modifier.fillMaxWidth().widthIn(max = 640.dp).padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 12.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Column(Modifier.fillMaxWidth().widthIn(max = 640.dp).padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 12.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedTextField(
                             value = draft, onValueChange = onDraftChange,
                             placeholder = { Text("Adicionar produto...") },
-                            modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(15.dp),
+                            modifier = Modifier.weight(1f), shape = RoundedCornerShape(15.dp),
                             singleLine = true, enabled = !loading && !adding,
                             isError = error != null,
-                            supportingText = if (error != null) ({ Text(error) }) else null,
-                            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences, imeAction = ImeAction.Next)
+                            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences, imeAction = ImeAction.Done),
+                            keyboardActions = KeyboardActions(onDone = { if (draft.isNotBlank() && !adding && !loading) onAdd() })
                         )
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            OutlinedTextField(
-                                value = quantity, onValueChange = onQuantityChange,
-                                label = { Text("Quantidade") },
-                                modifier = Modifier.weight(1f), shape = RoundedCornerShape(15.dp),
-                                singleLine = true, enabled = !loading && !adding,
-                                isError = quantityError != null,
-                                supportingText = if (quantityError != null) ({ Text(quantityError) }) else null,
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done),
-                                keyboardActions = KeyboardActions(onDone = { if (draft.isNotBlank() && !adding && !loading) onAdd() })
-                            )
+                            QuickQuantitySelector(quantity, onQuantityChange, enabled = !loading && !adding)
                             FilledIconButton(
                                 onClick = onAdd, enabled = !loading && !adding && draft.isNotBlank(),
-                                modifier = Modifier.size(54.dp), shape = RoundedCornerShape(15.dp)
+                                modifier = Modifier.size(56.dp), shape = RoundedCornerShape(15.dp)
                             ) { if (adding) CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp) else Icon(Icons.Outlined.Add, "Adicionar produto", Modifier.size(26.dp)) }
                         }
+                        if (error != null || quantityError != null) Text(
+                            error ?: quantityError.orEmpty(),
+                            modifier = Modifier.padding(start = 8.dp),
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall
+                        )
                     }
                 }
             }
@@ -213,6 +212,77 @@ import java.util.Locale
                 }
             }
         }
+    }
+}
+
+@Composable private fun QuickQuantitySelector(value: String, onChange: (String) -> Unit, enabled: Boolean) {
+    var expanded by remember { mutableStateOf(false) }
+    var customOpen by remember { mutableStateOf(false) }
+    var customInput by remember { mutableStateOf("") }
+    var customError by remember { mutableStateOf<String?>(null) }
+    val keyboard = LocalSoftwareKeyboardController.current
+
+    Box {
+        OutlinedButton(
+            onClick = { keyboard?.hide(); expanded = true }, enabled = enabled,
+            modifier = Modifier.width(84.dp).height(56.dp),
+            contentPadding = PaddingValues(horizontal = 8.dp),
+            shape = RoundedCornerShape(15.dp)
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text("Qtd", style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(value.replace('.', ','), style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            Icon(Icons.Outlined.ArrowDropDown, contentDescription = "Selecionar quantidade de 1 a 10 ou personalizada", Modifier.size(18.dp))
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            (1..10).forEach { option ->
+                DropdownMenuItem(
+                    text = { Text(option.toString()) },
+                    onClick = { onChange(option.toString()); expanded = false },
+                    trailingIcon = if (value == option.toString()) ({ Icon(Icons.Outlined.Check, null) }) else null
+                )
+            }
+            HorizontalDivider()
+            DropdownMenuItem(
+                text = { Text("Personalizado") },
+                onClick = {
+                    expanded = false
+                    customInput = value.replace('.', ',')
+                    customError = null
+                    customOpen = true
+                },
+                leadingIcon = { Icon(Icons.Outlined.Edit, null) }
+            )
+        }
+    }
+
+    if (customOpen) {
+        fun applyCustom() {
+            runCatching { Money.quantity(customInput) }
+                .onSuccess { onChange(it.replace('.', ',')); customOpen = false }
+                .onFailure { customError = it.message ?: "Quantidade inválida." }
+        }
+        AlertDialog(
+            onDismissRequest = { customOpen = false },
+            title = { Text("Quantidade personalizada") },
+            text = { Column {
+                OutlinedTextField(
+                    value = customInput, onValueChange = { customInput = it; customError = null },
+                    label = { Text("Quantidade") },
+                    placeholder = { Text("Ex.: 1,5") },
+                    singleLine = true,
+                    isError = customError != null,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done),
+                    keyboardActions = KeyboardActions(onDone = { applyCustom() })
+                )
+                if (customError != null) Text(customError.orEmpty(), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+            } },
+            confirmButton = { TextButton(onClick = { applyCustom() }) { Text("Confirmar") } },
+            dismissButton = { TextButton(onClick = { customOpen = false }) { Text("Cancelar") } }
+        )
     }
 }
 

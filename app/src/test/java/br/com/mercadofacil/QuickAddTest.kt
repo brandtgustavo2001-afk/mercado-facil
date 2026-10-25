@@ -26,4 +26,15 @@ class QuickAddTest {
             quickShoppingItem("list", "  ", "2", 0)
         }
     }
+
+    @Test fun acceptsLastQuickOptionAndCustomizedQuantityBeyondTen() {
+        assertEquals("10", quickShoppingItem("list", "Maçã", "10", 0).quantity)
+        assertEquals("12.75", quickShoppingItem("list", "Farinha", "12,75", 1).quantity)
+    }
+
+    @Test fun invalidCustomizedQuantityIsNotSaved() {
+        assertThrows(IllegalArgumentException::class.java) {
+            quickShoppingItem("list", "Farinha", "abc", 1)
+        }
+    }
 }

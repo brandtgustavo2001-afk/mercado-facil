@@ -12,8 +12,8 @@ import sys
 import argparse
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--version', default='1.0.11')
-parser.add_argument('--code', type=int, default=10011)
+parser.add_argument('--version', default='1.0.12')
+parser.add_argument('--code', type=int, default=10012)
 args = parser.parse_args()
 
 root = Path(__file__).resolve().parents[1]
