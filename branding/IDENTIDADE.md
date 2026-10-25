@@ -1,19 +1,19 @@
 # Identidade visual — Mercado Fácil
 
-**Conceito:** uma sacola com ✓ comunica a ação principal do aplicativo: marcar compras concluídas. A marca deve parecer prática, agradável e fácil de reconhecer em uma tela de celular.
+**Conceito:** sacola de mercado com monograma **M** geométrico. O desenho utiliza formas simples e contraste alto para ser reconhecido tanto no ícone do celular quanto no cabeçalho da lista.
 
 | Elemento | Cor | Uso |
 | --- | --- | --- |
 | Verde principal | `#165A43` | Identidade, ação principal, fundo do ícone |
 | Creme | `#FFFDF5` | Sacola e contraste com o verde |
-| Dourado | `#F6C96E` | Ponto de destaque da marca |
+| Verde menta | `#BCEBCB` | Alça da sacola e detalhe da marca |
 | Fundo claro | `#F6F8F3` | Superfície geral do aplicativo |
 | Texto claro | `#1D3026` | Títulos e produtos pendentes |
 | Fundo escuro | `#101A16` | Modo escuro |
 | Verde claro | `#97D8B9` | Ações em modo escuro |
 
-**Símbolo:** sacola arredondada com alça, check central e ponto dourado. Use o SVG em `icone-mercado-facil.svg` para apresentações e materiais de comunicação. No Android, os arquivos vetoriais estão em `app/src/main/res/drawable/` e o ícone adaptativo em `mipmap-anydpi-v26/`. A versão monocromática atende aos ícones temáticos do Android 13+.
+**Símbolo:** sacola arredondada em creme, alça menta e letra M em verde escuro. O SVG `icone-mercado-facil.svg` é a arte vetorial para materiais de comunicação. No Android, o ícone adaptativo e a versão temática monocromática usam a mesma construção; `ic_brand_mark.xml` mostra a marca completa no topo da lista.
 
-**Interface:** fontes nativas Material 3; títulos em negrito; cantos arredondados de 16–24 dp; cards brancos no modo claro; realce discreto dos comprados; inclusão rápida acessível pelo campo inferior. A lista continua sendo o foco, sem telas adicionais para adicionar e concluir compras.
+**Interface:** inspiração em listas enxutas como AnyList e Listonic: cabeçalho apenas com marca, título e menu de ações; navegação por abas; produtos visíveis imediatamente, sem cartão de resumo de progresso; itens para comprar acima dos selecionados. Fontes nativas Material 3, cantos de 16–24 dp e campo de inclusão rápida fixo na base.
 
 **Acessibilidade:** o ícone da marca é decorativo quando acompanhado do nome. Produtos podem ser marcados tocando em toda a linha, com mínimo de 48 dp para ações e contraste adequado entre texto e fundo.

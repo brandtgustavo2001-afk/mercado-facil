@@ -4,25 +4,22 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Bag handles connect to the body and stay inside the adaptive icon safe area. -->
+    <!-- New monogram: grocery bag and the letter M. -->
     <path
-        android:pathData="M39,45 V38 C39,29 45,23 54,23 C63,23 69,29 69,38 V45"
+        android:pathData="M42,44 V36 C42,28.3 47,23.5 54,23.5 C61,23.5 66,28.3 66,36 V44"
         android:fillColor="@android:color/transparent"
-        android:strokeColor="@color/brand_cream"
-        android:strokeWidth="6.5"
+        android:strokeColor="#BCEBCB"
+        android:strokeWidth="6"
         android:strokeLineCap="round"
         android:strokeLineJoin="round" />
     <path
         android:fillColor="@color/brand_cream"
-        android:pathData="M29,43 H79 C81,43 83,45 82.5,48 L77,77 C76.3,81 73,84 69,84 H39 C35,84 31.7,81 31,77 L25.5,48 C25,45 27,43 29,43 Z" />
+        android:pathData="M32,43 H76 C79,43 81,45.5 80.5,48.5 L76.5,77.5 C76,81.3 73.3,84 69,84 H39 C34.7,84 32,81.3 31.5,77.5 L27.5,48.5 C27,45.5 29,43 32,43 Z" />
     <path
-        android:pathData="M42,63 L51,71 L67,55"
+        android:pathData="M40,69 V54 L54,67 L68,54 V69"
         android:fillColor="@android:color/transparent"
         android:strokeColor="@color/brand_green"
-        android:strokeWidth="6.5"
+        android:strokeWidth="6.4"
         android:strokeLineCap="round"
         android:strokeLineJoin="round" />
-    <path
-        android:fillColor="@color/brand_gold"
-        android:pathData="M81,24 A6,6 0,1 1,69 24 A6,6 0,1 1,81 24 Z" />
 </vector>

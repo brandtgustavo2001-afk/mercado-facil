@@ -1,7 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 108 108" role="img" aria-label="Ícone Mercado Fácil: sacola de compras com marca de confirmação">
-  <rect width="108" height="108" rx="25" fill="#165A43"/>
-  <path d="M39 45 V38 C39 29 45 23 54 23 C63 23 69 29 69 38 V45" fill="none" stroke="#FFFDF5" stroke-width="6.5" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M29 43 H79 C81 43 83 45 82.5 48 L77 77 C76.3 81 73 84 69 84 H39 C35 84 31.7 81 31 77 L25.5 48 C25 45 27 43 29 43 Z" fill="#FFFDF5"/>
-  <path d="M42 63 L51 71 L67 55" fill="none" stroke="#165A43" stroke-width="6.5" stroke-linecap="round" stroke-linejoin="round"/>
-  <circle cx="75" cy="24" r="6" fill="#F6C96E"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 108 108" role="img" aria-label="Marca Mercado Fácil: sacola com monograma M">
+  <rect width="108" height="108" rx="25" fill="#176347"/>
+  <path d="M42 44 V36 C42 28.3 47 23.5 54 23.5 C61 23.5 66 28.3 66 36 V44" fill="none" stroke="#BCEBCB" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M32 43 H76 C79 43 81 45.5 80.5 48.5 L76.5 77.5 C76 81.3 73.3 84 69 84 H39 C34.7 84 32 81.3 31.5 77.5 L27.5 48.5 C27 45.5 29 43 32 43 Z" fill="#FFFDF5"/>
+  <path d="M40 69 V54 L54 67 L68 54 V69" fill="none" stroke="#176347" stroke-width="6.4" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>

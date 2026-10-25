@@ -8,7 +8,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
-import androidx.compose.material.icons.outlined.MoreHoriz
+import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -97,7 +97,7 @@ import br.com.mercadofacil.viewmodel.MainViewModel
             loading = current == null, adding = adding, paying = paying, error = inputError, snackbar = snackbar,
             actions = {
                 Box {
-                    IconButton(onClick = { menu = true }) { Icon(Icons.Outlined.MoreHoriz, "Menu da lista") }
+                    IconButton(onClick = { menu = true }) { Icon(Icons.Outlined.MoreVert, "Menu da lista") }
                     DropdownMenu(menu, { menu = false }) {
                         DropdownMenuItem(text = { Text("Compartilhar lista") }, onClick = { menu = false; sharing = true })
                         DropdownMenuItem(text = { Text("Outras listas") }, onClick = { menu = false; chooseList = true })

@@ -102,12 +102,9 @@ import java.util.Locale
         containerColor = MaterialTheme.colorScheme.background,
         snackbarHost = { SnackbarHost(snackbar) },
         topBar = { Column { TopAppBar(
-            title = { Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            title = { Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 BrandBadge()
-                Column {
-                    Text("Mercado Fácil", style = MaterialTheme.typography.titleLarge, letterSpacing = (-0.6).sp)
-                    Text("Seu mercado organizado", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
+                Text("Mercado Fácil", style = MaterialTheme.typography.titleLarge, letterSpacing = (-0.6).sp)
             } },
             actions = actions,
             colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
@@ -179,17 +176,13 @@ import java.util.Locale
                 Modifier.fillMaxSize().widthIn(max = 640.dp),
                 contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 14.dp, bottom = 28.dp)
             ) {
-                item("summary") {
-                    ShoppingOverview(listName, pending.size, selected.size)
+                if (listName != "Minha lista") item("list-name") {
+                    Text(listName, style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(start = 2.dp, bottom = 14.dp))
                 }
                 if (pending.isNotEmpty() || selected.isEmpty()) item("pending-heading") { SectionTitle("Para comprar", pending.size) }
                 if (products.isEmpty()) item("empty") { EmptyState("Sua lista começa aqui", "Adicione o primeiro produto no campo abaixo.") }
-                if (pending.isEmpty() && selected.isNotEmpty()) item("selected-all") {
-                    Row(Modifier.padding(vertical = 24.dp, horizontal = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Icon(Icons.Outlined.CheckCircle, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(28.dp))
-                        Column { Text("Tudo selecionado!", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold); Text("Após pagar, toque em Comprados.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-                    }
-                }
                 items(pending, key = { it.id }) { product ->
                     ShoppingRow(product, { onToggle(product) }, { onEdit(product) }, { onDelete(product) }, Modifier.animateItem(placementSpec = tween(180)))
                 }
@@ -264,40 +257,9 @@ import java.util.Locale
     }
 }
 
-@Composable private fun ShoppingOverview(listName: String, pending: Int, selected: Int) {
-    val all = pending + selected
-    Surface(Modifier.fillMaxWidth().padding(bottom = 22.dp),
-        color = MaterialTheme.colorScheme.primaryContainer,
-        shape = RoundedCornerShape(22.dp)) {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 19.dp, vertical = 17.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Column(Modifier.weight(1f)) {
-                Text(listName, style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f))
-                Text(if (all == 0) "Sua lista está vazia" else if (pending == 0) "Tudo selecionado!"
-                    else if (pending == 1) "Falta 1 produto" else "Faltam $pending produtos",
-                    style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onPrimaryContainer,
-                    modifier = Modifier.padding(top = 3.dp))
-                Text(if (all == 0) "Adicione itens para começar" else "$selected de $all selecionados",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
-                    modifier = Modifier.padding(top = 3.dp))
-            }
-            Surface(shape = RoundedCornerShape(16.dp),
-                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.13f)) {
-                Icon(Icons.Outlined.ShoppingBasket, null,
-                    modifier = Modifier.padding(13.dp).size(28.dp),
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer)
-            }
-        }
-    }
-}
-
 @Composable private fun BrandBadge() {
-    Box(Modifier.size(42.dp).clip(RoundedCornerShape(13.dp)).background(Color(0xFF176347)), contentAlignment = Alignment.Center) {
-        Image(painter = painterResource(R.drawable.ic_launcher_foreground), contentDescription = null, modifier = Modifier.size(58.dp))
-    }
+    Image(painter = painterResource(R.drawable.ic_brand_mark), contentDescription = null,
+        modifier = Modifier.size(44.dp))
 }
 
 @Composable private fun SectionTitle(title: String, count: Int) {
