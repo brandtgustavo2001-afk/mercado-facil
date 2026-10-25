@@ -30,7 +30,7 @@ Lembretes usam WorkManager e podem sofrer atraso pelo gerenciamento de bateria d
 
 ## Supabase
 
-O APK 1.0.1 já inclui a URL e a chave **publishable** do projeto `igehbjnutmhkqfdlrndx`. O esquema foi aplicado e os testes SQL de RPCs/RLS passaram. Para usar, abra Ajustes, crie uma conta do aplicativo e confirme o e-mail. A conta usada para administrar o painel Supabase pelo GitHub é separada das contas dos usuários do aplicativo.
+O APK já inclui a URL e a chave **publishable** do projeto `igehbjnutmhkqfdlrndx`. O esquema foi aplicado e os testes SQL de RPCs/RLS passaram. Para usar, abra **menu (...) → Conta e ajustes → Conta e sincronização**; escolha **Criar conta**, informe nome, e-mail e senha e confirme o e-mail se for solicitado. Depois, entre usando a mesma conta. A conta usada para administrar o painel Supabase pelo GitHub é separada das contas dos usuários do aplicativo. A partir da versão 1.0.6, o aplicativo mostra mensagens mais claras para e-mail não confirmado, senha errada e limitação de cadastros pelo servidor. Se o servidor desativar a inscrição por e-mail ou bloquear o envio por limite de mensagens, isso exige ajuste no Supabase e não pode ser resolvido apenas pelo APK.
 
 Não execute a migração inicial novamente nesse projeto. Os passos abaixo são para configurar outro projeto novo.
 
@@ -79,7 +79,7 @@ Para criar a primeira chave local e compilar um release:
 python tools/build_release.py
 ```
 
-A chave e as senhas ficam **fora do repositório**, em `~/.codex/secrets/mercado-facil`. Faça backup seguro dessa pasta; perder a chave impede atualizar instalações existentes. O script não imprime senhas e reutiliza a chave nas próximas execuções. O arquivo `tools/build_release.py` gera a versão 1.0.5 por padrão; use `--version` e `--code` para selecionar outra versão.
+A chave e as senhas ficam **fora do repositório**, em `~/.codex/secrets/mercado-facil`. Faça backup seguro dessa pasta; perder a chave impede atualizar instalações existentes. O script não imprime senhas e reutiliza a chave nas próximas execuções. O arquivo `tools/build_release.py` gera a versão 1.0.6 por padrão; use `--version` e `--code` para selecionar outra versão.
 
 Configure os quatro Secrets no GitHub → Settings → Secrets and variables → Actions:
 

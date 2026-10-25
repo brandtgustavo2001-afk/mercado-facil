@@ -5,7 +5,7 @@ Este projeto é uma primeira implementação funcional, **não a conclusão inte
 ## Verificado no ambiente local
 
 - Compilação do APK debug e do APK de testes de instrumentação.
-- Trinta e sete testes automatizados: cálculos, SemVer, sincronização, Room/SQLite, configuração do backend, seleção segura de releases, cache de atualizações, lista simplificada, compras pagas, migração e backup de histórico.
+- Quarenta e dois testes automatizados: cálculos, SemVer, sincronização, Room/SQLite, configuração do backend, seleção segura de releases, cache de atualizações, lista simplificada, compras pagas, migração, backup de histórico, cadastro e mensagens de erro da autenticação.
 - Android Lint sem erros; há avisos de atualização de dependências e recomendações.
 - APK release 1.0.0/10000 compilado e assinatura APK v2 validada por `apksigner`.
 - APK release 1.0.1/10001 compilado e assinatura verificada, com conexão Supabase pública pré-configurada; o esquema Room permanece na versão 1.
@@ -19,6 +19,7 @@ Este projeto é uma primeira implementação funcional, **não a conclusão inte
 - Versão 1.0.3 simplifica a tela inicial com inclusão rápida, itens pendentes em cima e comprados embaixo, preservando as listas existentes. Compilação debug, 32 testes unitários e Lint concluídos sem erros; validação visual em celular ainda pendente.
 - Versão 1.0.4 adiciona identidade visual: ícone adaptativo Android com variante monocromática, tela de abertura, paleta verde/creme/dourado e cartões na tela de compras. A validação em celular continua pendente.
 - Versão 1.0.5 agrupa os produtos ainda necessários acima dos selecionados, apresenta botão fixo **Comprados** após a seleção e cria uma aba de histórico limitada às 10 compras mais recentes. Uma migração Room 1→2 preserva itens e listas existentes. Histórico local é incluído em backups JSON v2 e restaura arquivos v1.
+- Versão 1.0.6 simplifica a tela **Conta e ajustes** em seções, dá acesso direto à conta pelo menu da lista e separa cadastro e login. Valida e confirma senhas, informa a etapa de confirmação por e-mail e interpreta erros da API Supabase (credenciais, e-mail inválido/não confirmado, limite de tentativas, cadastro desabilitado e conexão). Não há teste real de criação de conta concluído no servidor; configuração SMTP e limites de e-mail permanecem dependências externas.
 
 ## Implementado, com validação externa pendente
 

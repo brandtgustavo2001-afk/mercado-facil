@@ -55,7 +55,7 @@ import br.com.mercadofacil.viewmodel.MainViewModel
         UpdatePrompt(vm, checkUpdates)
         if (advanced) Scaffold(
             snackbarHost = { SnackbarHost(snackbar) },
-            topBar = { TopAppBar(title = { Text("Outras opções") }, navigationIcon = { IconButton(onClick = { advanced = false }) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Voltar à lista") } }) }
+            topBar = { TopAppBar(title = { Text("Ajustes") }, navigationIcon = { IconButton(onClick = { advanced = false }) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Voltar à lista") } }) }
         ) { padding -> SettingsScreen(vm, Modifier.padding(padding)) }
         else ShoppingContent(
             listName = current?.name ?: "Minha lista", products = currentProducts, purchases = purchases,
@@ -101,7 +101,8 @@ import br.com.mercadofacil.viewmodel.MainViewModel
                     DropdownMenu(menu, { menu = false }) {
                         DropdownMenuItem(text = { Text("Compartilhar lista") }, onClick = { menu = false; sharing = true })
                         DropdownMenuItem(text = { Text("Outras listas") }, onClick = { menu = false; chooseList = true })
-                        DropdownMenuItem(text = { Text("Configurações") }, onClick = { menu = false; preferences = true })
+                        DropdownMenuItem(text = { Text("Conta e ajustes") }, onClick = { menu = false; advanced = true })
+                        DropdownMenuItem(text = { Text("Ajustes rápidos") }, onClick = { menu = false; preferences = true })
                     }
                 }
             }
@@ -113,7 +114,7 @@ import br.com.mercadofacil.viewmodel.MainViewModel
                 }
                 Text("Versão ${BuildConfig.VERSION_NAME}", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 TextButton(onClick = { preferences = false; checkUpdates++ }) { Text("Verificar atualizações") }
-                TextButton(onClick = { preferences = false; advanced = true }) { Text("Conta, backup e outras opções") }
+                TextButton(onClick = { preferences = false; advanced = true }) { Text("Conta, atualizações e backups") }
             }
         }, confirmButton = { TextButton(onClick = { preferences = false }) { Text("Fechar") } })
         if (chooseList) AlertDialog(onDismissRequest = { chooseList = false }, title = { Text("Suas listas") }, text = {

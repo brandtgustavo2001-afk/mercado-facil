@@ -36,19 +36,22 @@ class SyncEngine(private val context: Context, private val repository: ShoppingR
         if (body != null) builder.post(body.toString().toRequestBody("application/json".toMediaType()))
         client.newCall(builder.build()).execute().use {
             val text = requireNotNull(it.body).string()
-            if (!it.isSuccessful) error("Supabase HTTP ${it.code}: ${runCatching { JSONObject(text).optString("msg", JSONObject(text).optString("message", "Falha na solicitação")) }.getOrDefault("Falha na solicitação")}")
+            if (!it.isSuccessful) error(AuthFeedback.error(it.code, text))
             text
         }
     }
     suspend fun authenticate(email: String, password: String, signup: Boolean, name: String): String {
-        require(email.contains('@') && password.length >= 8) { "Informe e-mail válido e senha de pelo menos 8 caracteres" }
-        val body = JSONObject().put("email", email.trim()).put("password", password)
+        require(AuthFeedback.validEmail(email) && password.length >= 8) { "Informe e-mail válido e senha de pelo menos 8 caracteres" }
+        val normalizedEmail = email.trim().lowercase(java.util.Locale.ROOT)
+        val body = JSONObject().put("email", normalizedEmail).put("password", password)
         if (signup) body.put("data", JSONObject().put("display_name", name))
-        val value = JSONObject(request(if (signup) "/auth/v1/signup" else "/auth/v1/token?grant_type=password", body))
-        if (!value.has("access_token")) return "Confirme seu e-mail para entrar."
+        val response = request(if (signup) "/auth/v1/signup" else "/auth/v1/token?grant_type=password", body)
+        val feedback = AuthFeedback.success(response, signup)
+        val value = JSONObject(response)
+        if (value.optString("access_token").isBlank()) return feedback
         sessionStore.save(value.toString())
-        this.email.value = email.trim()
-        return "Sessão iniciada"
+        this.email.value = normalizedEmail
+        return feedback
     }
     suspend fun recover(email: String) { request("/auth/v1/recover", JSONObject().put("email", email.trim())) }
     suspend fun token(): String = authMutex.withLock {
