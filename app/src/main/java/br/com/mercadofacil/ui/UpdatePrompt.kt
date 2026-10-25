@@ -23,7 +23,7 @@ import br.com.mercadofacil.viewmodel.MainViewModel
 import kotlinx.coroutines.Job
 import java.io.File
 
-@Composable fun UpdatePrompt(vm: MainViewModel) {
+@Composable fun UpdatePrompt(vm: MainViewModel, checkRequest: Int = 0) {
     val context = LocalContext.current
     val updater = remember { Updater(context.applicationContext) }
     var release by remember { mutableStateOf<Release?>(null) }
@@ -40,6 +40,12 @@ import java.io.File
     }
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
         if (release == null && ready == null) vm.run { release = updater.check() }
+    }
+    LaunchedEffect(checkRequest) {
+        if (checkRequest > 0) vm.run {
+            release = updater.check(true)
+            if (release == null) vm.message.value = "Você está na versão mais recente."
+        }
     }
     release?.let { update ->
         AlertDialog(

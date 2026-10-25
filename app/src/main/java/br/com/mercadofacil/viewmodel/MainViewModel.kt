@@ -14,15 +14,21 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val items = repository.dao.items().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     val categories = repository.dao.categories().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     val settings = app.settings.flow.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), br.com.mercadofacil.data.AppSettings())
+    val selectedList = app.settings.selectedList.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
     val conflicts = repository.dao.conflicts().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     val queue = repository.dao.queueSize().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
     val message = MutableStateFlow<String?>(null)
-    init { run { repository.initialize() } }
+    init { run {
+        repository.initialize()
+        val list = repository.ensureShoppingList(app.settings.selectedListId())
+        app.settings.selectList(list.id)
+    } }
     fun run(block: suspend () -> Unit): Job = viewModelScope.launch {
         try { block() } catch (e: Exception) { if (e is CancellationException) throw e; message.value = e.message ?: "Não foi possível concluir" }
     }
     fun save(list: ShoppingList) = run { repository.save(list); scheduleSync() }
     fun save(item: ShoppingItem) = run { repository.save(item); scheduleSync() }
+    fun requestSync() = scheduleSync()
     private fun scheduleSync() {
         androidx.work.WorkManager.getInstance(app).enqueueUniqueWork("sync-now", androidx.work.ExistingWorkPolicy.APPEND_OR_REPLACE,
             androidx.work.OneTimeWorkRequestBuilder<br.com.mercadofacil.sync.SyncWorker>().setConstraints(androidx.work.Constraints.Builder().setRequiredNetworkType(androidx.work.NetworkType.CONNECTED).build()).build())

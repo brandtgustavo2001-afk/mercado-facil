@@ -5,7 +5,7 @@ Este projeto é uma primeira implementação funcional, **não a conclusão inte
 ## Verificado no ambiente local
 
 - Compilação do APK debug e do APK de testes de instrumentação.
-- Vinte e oito testes automatizados: cálculos, SemVer, sincronização, Room/SQLite, configuração do backend, seleção segura de releases e cache de atualizações por repositório.
+- Trinta e dois testes automatizados: cálculos, SemVer, sincronização, Room/SQLite, configuração do backend, seleção segura de releases, cache de atualizações e lista simplificada.
 - Android Lint sem erros; há avisos de atualização de dependências e recomendações.
 - APK release 1.0.0/10000 compilado e assinatura APK v2 validada por `apksigner`.
 - APK release 1.0.1/10001 compilado e assinatura verificada, com conexão Supabase pública pré-configurada; o esquema Room permanece na versão 1.
@@ -16,6 +16,7 @@ Este projeto é uma primeira implementação funcional, **não a conclusão inte
 - Auth por e-mail habilitado, confirmação de e-mail mantida e chave publishable configurada no app. Nenhuma chave administrativa no APK.
 - Corrigida a causa da ausência de atualização: releases estavam marcadas como pré-release e `/releases/latest` retornava 404. A 1.0.1 foi disponibilizada no canal normal; o workflow foi corrigido para publicar releases completas nesse canal.
 - Versão 1.0.2 acrescenta aviso de atualização acionável na abertura/retorno ao app e cache da versão encontrada. A confirmação do instalador Android continua obrigatória.
+- Versão 1.0.3 simplifica a tela inicial com inclusão rápida, itens pendentes em cima e comprados embaixo, preservando as listas existentes. Compilação debug, 32 testes unitários e Lint concluídos sem erros; validação visual em celular ainda pendente.
 
 ## Implementado, com validação externa pendente
 

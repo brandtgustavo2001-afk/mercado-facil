@@ -56,7 +56,7 @@ data class SyncOperation(
 @Dao
 interface ShoppingDao {
     @Query("SELECT * FROM shopping_lists WHERE deleted = 0 ORDER BY updatedAt DESC") fun lists(): Flow<List<ShoppingList>>
-    @Query("SELECT * FROM shopping_items WHERE deleted = 0 ORDER BY position, name") fun items(): Flow<List<ShoppingItem>>
+    @Query("SELECT * FROM shopping_items WHERE deleted = 0 ORDER BY purchased, position, name") fun items(): Flow<List<ShoppingItem>>
     @Query("SELECT * FROM categories ORDER BY name") fun categories(): Flow<List<Category>>
     @Query("SELECT * FROM shopping_lists") suspend fun allLists(): List<ShoppingList>
     @Query("SELECT * FROM shopping_items") suspend fun allItems(): List<ShoppingItem>

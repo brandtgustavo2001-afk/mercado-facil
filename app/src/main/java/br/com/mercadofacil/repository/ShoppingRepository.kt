@@ -9,6 +9,12 @@ import java.util.UUID
 class ShoppingRepository(val db: MercadoDatabase) {
     val dao = db.dao()
     suspend fun initialize() { defaultCategories.forEach { dao.category(Category(it)) } }
+    suspend fun ensureShoppingList(preferredId: String? = null): ShoppingList = db.withTransaction {
+        val available = dao.allLists().filter { !it.deleted }
+        available.firstOrNull { it.id == preferredId }
+            ?: available.filter { it.status == "active" }.maxByOrNull { it.updatedAt }
+            ?: ShoppingList(name = "Minha lista").also { dao.save(it) }
+    }
     suspend fun save(list: ShoppingList) = db.withTransaction {
         require(list.name.isNotBlank() && list.name.length <= 120)
         require(list.budgetCents >= 0)
