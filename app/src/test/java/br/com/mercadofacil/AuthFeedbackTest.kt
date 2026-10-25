@@ -5,6 +5,14 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class AuthFeedbackTest {
+    @Test fun acceptsSupabaseSignupUserReturnedAtRootWithoutSession() {
+        val signupResponse = """{"id":"f9f57c63-f1a9-40d2-9f99-3edb7fcb9e3c","email":"ana@example.com","confirmation_sent_at":"2026-10-25T03:00:00Z","identities":[{"provider":"email"}]}"""
+
+        val feedback = AuthFeedback.success(signupResponse, true)
+
+        assertTrue(feedback.contains("Confira seu e-mail"))
+    }
+
     @Test fun signupConfirmationDoesNotPretendUserIsLoggedIn() {
         assertTrue(AuthFeedback.success("{\"user\":{\"id\":\"abc\"},\"session\":null}", true).contains("e-mail"))
         assertEquals("Conta conectada com sucesso.", AuthFeedback.success("{\"access_token\":\"test\"}", true))
@@ -12,6 +20,8 @@ class AuthFeedbackTest {
 
     @Test fun invalidAuthResponseCannotBeMistakenForConfirmation() {
         assertThrows(IllegalStateException::class.java) { AuthFeedback.success("{}", true) }
+        assertThrows(IllegalStateException::class.java) { AuthFeedback.success("{\"id\":\"abc\"}", true) }
+        assertThrows(IllegalStateException::class.java) { AuthFeedback.success("{\"email\":\"ana@example.com\"}", true) }
         assertThrows(IllegalStateException::class.java) { AuthFeedback.success("{\"user\":{}}", false) }
     }
 

@@ -20,6 +20,7 @@ Este projeto é uma primeira implementação funcional, **não a conclusão inte
 - Versão 1.0.4 adiciona identidade visual: ícone adaptativo Android com variante monocromática, tela de abertura, paleta verde/creme/dourado e cartões na tela de compras. A validação em celular continua pendente.
 - Versão 1.0.5 agrupa os produtos ainda necessários acima dos selecionados, apresenta botão fixo **Comprados** após a seleção e cria uma aba de histórico limitada às 10 compras mais recentes. Uma migração Room 1→2 preserva itens e listas existentes. Histórico local é incluído em backups JSON v2 e restaura arquivos v1.
 - Versão 1.0.6 simplifica a tela **Conta e ajustes** em seções, dá acesso direto à conta pelo menu da lista e separa cadastro e login. Valida e confirma senhas, informa a etapa de confirmação por e-mail e interpreta erros da API Supabase (credenciais, e-mail inválido/não confirmado, limite de tentativas, cadastro desabilitado e conexão). Não há teste real de criação de conta concluído no servidor; configuração SMTP e limites de e-mail permanecem dependências externas.
+- Versão 1.0.7 corrige o tratamento do cadastro com confirmação por e-mail: o Supabase pode responder com o usuário diretamente na raiz da resposta (sem `access_token`), e o aplicativo agora reconhece esse formato como cadastro recebido. Testes cobrem o retorno realista e respostas inválidas. O envio efetivo do e-mail continua dependente das configurações do Supabase.
 
 ## Implementado, com validação externa pendente
 

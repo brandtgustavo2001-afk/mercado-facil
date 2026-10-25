@@ -25,7 +25,10 @@ object AuthFeedback {
     fun success(body: String, signup: Boolean): String {
         val response = JSONObject(body)
         if (response.optString("access_token").isNotBlank()) return "Conta conectada com sucesso."
-        if (signup && response.optJSONObject("user") != null) {
+        // GoTrue /signup may return the user directly (without a session)
+        // when email confirmation is enabled. Some clients wrap it in "user".
+        val rootUser = response.optString("id").isNotBlank() && validEmail(response.optString("email"))
+        if (signup && (response.optJSONObject("user") != null || rootUser)) {
             return "Cadastro recebido! Confira seu e-mail (inclusive a pasta de spam) e confirme o endereço antes de entrar."
         }
         error("Não foi possível confirmar o cadastro. Tente novamente.")
