@@ -12,6 +12,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val repository = app.repository
     val lists = repository.dao.lists().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     val items = repository.dao.items().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    val purchases = repository.dao.purchases().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     val categories = repository.dao.categories().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     val settings = app.settings.flow.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), br.com.mercadofacil.data.AppSettings())
     val selectedList = app.settings.selectedList.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)

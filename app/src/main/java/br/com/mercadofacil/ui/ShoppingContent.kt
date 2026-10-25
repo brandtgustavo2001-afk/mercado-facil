@@ -28,7 +28,14 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import br.com.mercadofacil.R
+import br.com.mercadofacil.database.PurchaseHistory
 import br.com.mercadofacil.database.ShoppingItem
+import br.com.mercadofacil.domain.Money
+import org.json.JSONArray
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 @Composable fun ShoppingTheme(dark: Boolean, content: @Composable () -> Unit) {
     val colors = if (dark) darkColorScheme(
@@ -51,24 +58,29 @@ import br.com.mercadofacil.database.ShoppingItem
 @Composable fun ShoppingContent(
     listName: String,
     products: List<ShoppingItem>,
+    purchases: List<PurchaseHistory>,
+    selectedTab: Int,
+    onTabChange: (Int) -> Unit,
     draft: String,
     onDraftChange: (String) -> Unit,
     onAdd: () -> Unit,
     onToggle: (ShoppingItem) -> Unit,
+    onComplete: () -> Unit,
     onEdit: (ShoppingItem) -> Unit,
     onDelete: (ShoppingItem) -> Unit,
     loading: Boolean = false,
     adding: Boolean = false,
+    paying: Boolean = false,
     error: String? = null,
     snackbar: SnackbarHostState = remember { SnackbarHostState() },
     actions: @Composable RowScope.() -> Unit = {}
 ) {
     val pending = products.filter { !it.purchased }
-    val purchased = products.filter { it.purchased }
+    val selected = products.filter { it.purchased }
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         snackbarHost = { SnackbarHost(snackbar) },
-        topBar = { TopAppBar(
+        topBar = { Column { TopAppBar(
             title = { Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 BrandBadge()
                 Column {
@@ -78,11 +90,36 @@ import br.com.mercadofacil.database.ShoppingItem
             } },
             actions = actions,
             colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
-        ) },
+        )
+            TabRow(selectedTabIndex = selectedTab, containerColor = MaterialTheme.colorScheme.background) {
+                Tab(selected = selectedTab == 0, onClick = { onTabChange(0) },
+                    text = { Text("Minha lista") })
+                Tab(selected = selectedTab == 1, onClick = { onTabChange(1) },
+                    text = { Text("Histórico (${purchases.size})") })
+            }
+        } },
         bottomBar = {
+            if (selectedTab == 0) {
             Surface(color = MaterialTheme.colorScheme.surface, shadowElevation = 10.dp,
                 shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)) {
                 Column(Modifier.navigationBarsPadding().imePadding(), horizontalAlignment = Alignment.CenterHorizontally) {
+                    if (selected.isNotEmpty()) {
+                        Column(Modifier.fillMaxWidth().widthIn(max = 640.dp)
+                            .padding(start = 18.dp, end = 18.dp, top = 14.dp)) {
+                            Button(onClick = onComplete, enabled = !paying && !loading,
+                                modifier = Modifier.fillMaxWidth().heightIn(min = 54.dp),
+                                shape = RoundedCornerShape(16.dp)) {
+                                if (paying) CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp)
+                                else Icon(Icons.Outlined.CheckCircle, contentDescription = null)
+                                Spacer(Modifier.width(10.dp))
+                                Text("Comprados (${selected.size})", fontWeight = FontWeight.SemiBold)
+                            }
+                            Text("Toque após pagar os itens selecionados.",
+                                modifier = Modifier.fillMaxWidth().padding(top = 5.dp),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
                     Row(Modifier.fillMaxWidth().widthIn(max = 640.dp).padding(start = 18.dp, end = 18.dp, top = 14.dp, bottom = 16.dp),
                         verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         OutlinedTextField(
@@ -103,10 +140,12 @@ import br.com.mercadofacil.database.ShoppingItem
                     }
                 }
             }
+            }
         }
     ) { padding ->
         Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.TopCenter) {
-            if (loading) CircularProgressIndicator(Modifier.padding(48.dp))
+            if (selectedTab == 1) PurchaseHistoryContent(purchases)
+            else if (loading) CircularProgressIndicator(Modifier.padding(48.dp))
             else LazyColumn(
                 Modifier.fillMaxSize().widthIn(max = 640.dp),
                 contentPadding = PaddingValues(start = 18.dp, end = 18.dp, top = 20.dp, bottom = 28.dp)
@@ -114,22 +153,67 @@ import br.com.mercadofacil.database.ShoppingItem
                 if (listName != "Minha lista") item("list-name") {
                     Text(listName, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(bottom = 20.dp, start = 4.dp))
                 }
-                if (pending.isNotEmpty() || purchased.isEmpty()) item("pending-heading") { SectionTitle("Para comprar", pending.size) }
+                if (pending.isNotEmpty() || selected.isEmpty()) item("pending-heading") { SectionTitle("Para comprar", pending.size) }
                 if (products.isEmpty()) item("empty") { EmptyState("Sua lista começa aqui", "Adicione o primeiro produto no campo abaixo.") }
-                if (pending.isEmpty() && purchased.isNotEmpty()) item("complete") {
+                if (pending.isEmpty() && selected.isNotEmpty()) item("selected-all") {
                     Row(Modifier.padding(vertical = 24.dp, horizontal = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         Icon(Icons.Outlined.CheckCircle, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(28.dp))
-                        Column { Text("Tudo comprado!", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold); Text("Pode adicionar mais produtos quando precisar.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                        Column { Text("Tudo selecionado!", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold); Text("Após pagar, toque em Comprados.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                     }
                 }
                 items(pending, key = { it.id }) { product ->
                     ShoppingRow(product, { onToggle(product) }, { onEdit(product) }, { onDelete(product) }, Modifier.animateItem(placementSpec = tween(180)))
                 }
-                if (purchased.isNotEmpty()) item("purchased-heading") {
-                    Spacer(Modifier.height(22.dp)); SectionTitle("Comprados", purchased.size)
+                if (selected.isNotEmpty()) item("selected-heading") {
+                    Spacer(Modifier.height(22.dp)); SectionTitle("Selecionados", selected.size)
                 }
-                items(purchased, key = { it.id }) { product ->
+                items(selected, key = { it.id }) { product ->
                     ShoppingRow(product, { onToggle(product) }, { onEdit(product) }, { onDelete(product) }, Modifier.animateItem(placementSpec = tween(180)))
+                }
+            }
+        }
+    }
+}
+
+@Composable private fun PurchaseHistoryContent(history: List<PurchaseHistory>) {
+    val dateFormat = remember { DateTimeFormatter.ofPattern("dd/MM/yyyy 'às' HH:mm", Locale("pt", "BR")) }
+    LazyColumn(Modifier.fillMaxSize().widthIn(max = 640.dp),
+        contentPadding = PaddingValues(start = 18.dp, end = 18.dp, top = 22.dp, bottom = 28.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        item("history-header") {
+            Column(Modifier.padding(horizontal = 4.dp, vertical = 4.dp)) {
+                Text("Últimas 10 compras", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Text("Compras anteriores às 10 mais recentes são excluídas automaticamente.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+        if (history.isEmpty()) item("history-empty") {
+            EmptyState("Nenhuma compra registrada", "Selecione produtos na lista e toque em Comprados depois de pagar.")
+        }
+        items(history, key = { it.id }) { purchase ->
+            Surface(shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surface,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
+                Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(Instant.ofEpochMilli(purchase.createdAt).atZone(ZoneId.systemDefault()).format(dateFormat),
+                        style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text("${purchase.listName} • ${purchase.itemCount} ${if (purchase.itemCount == 1) "item" else "itens"}",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    val products = remember(purchase.itemsJson) {
+                        JSONArray(purchase.itemsJson).let { array -> (0 until array.length()).map { array.getJSONObject(it) } }
+                    }
+                    products.forEach { product ->
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(product.getString("name"), modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                            Text("${product.getString("quantity").replace('.', ',')} ${product.getString("unit")}",
+                                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                    if (purchase.totalCents > 0) {
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                        Text("Total informado: ${Money.format(purchase.totalCents)}", style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
+                    }
                 }
             }
         }

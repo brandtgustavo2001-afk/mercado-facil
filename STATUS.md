@@ -5,7 +5,7 @@ Este projeto é uma primeira implementação funcional, **não a conclusão inte
 ## Verificado no ambiente local
 
 - Compilação do APK debug e do APK de testes de instrumentação.
-- Trinta e dois testes automatizados: cálculos, SemVer, sincronização, Room/SQLite, configuração do backend, seleção segura de releases, cache de atualizações e lista simplificada.
+- Trinta e sete testes automatizados: cálculos, SemVer, sincronização, Room/SQLite, configuração do backend, seleção segura de releases, cache de atualizações, lista simplificada, compras pagas, migração e backup de histórico.
 - Android Lint sem erros; há avisos de atualização de dependências e recomendações.
 - APK release 1.0.0/10000 compilado e assinatura APK v2 validada por `apksigner`.
 - APK release 1.0.1/10001 compilado e assinatura verificada, com conexão Supabase pública pré-configurada; o esquema Room permanece na versão 1.
@@ -18,6 +18,7 @@ Este projeto é uma primeira implementação funcional, **não a conclusão inte
 - Versão 1.0.2 acrescenta aviso de atualização acionável na abertura/retorno ao app e cache da versão encontrada. A confirmação do instalador Android continua obrigatória.
 - Versão 1.0.3 simplifica a tela inicial com inclusão rápida, itens pendentes em cima e comprados embaixo, preservando as listas existentes. Compilação debug, 32 testes unitários e Lint concluídos sem erros; validação visual em celular ainda pendente.
 - Versão 1.0.4 adiciona identidade visual: ícone adaptativo Android com variante monocromática, tela de abertura, paleta verde/creme/dourado e cartões na tela de compras. A validação em celular continua pendente.
+- Versão 1.0.5 agrupa os produtos ainda necessários acima dos selecionados, apresenta botão fixo **Comprados** após a seleção e cria uma aba de histórico limitada às 10 compras mais recentes. Uma migração Room 1→2 preserva itens e listas existentes. Histórico local é incluído em backups JSON v2 e restaura arquivos v1.
 
 ## Implementado, com validação externa pendente
 
@@ -35,7 +36,7 @@ Este projeto é uma primeira implementação funcional, **não a conclusão inte
 - Verificar atualização 1.0.0 → 1.1.0 assinada, com preservação do banco, sessão e fila.
 - Testes instrumentados específicos de migração de esquema, testes de download interrompido/corrompido e assinatura incompatível.
 - Cursor incremental durável, assinaturas por lista e tratamento dedicado de remoção de acesso com fila offline.
-- Histórico financeiro e de preços em entidades próprias e snapshots imutáveis; hoje os relatórios usam listas concluídas e produtos persistidos.
+- Histórico financeiro/estatísticas completas por categoria e preços históricos; a aba de compras pagas já usa snapshots imutáveis locais, mas as estatísticas legadas ainda dependem de listas concluídas e produtos persistidos.
 - Catálogo Product independente, gerenciamento completo de favoritos, ordenação manual e opções de ordenação persistidas.
 - Edição de categorias (nome/ícone/cor), importação/exportação completa incluindo categorias/preferências e limpeza de histórico com confirmação.
 - Links de convite/deep links, nomes e avatares dos participantes em vez de UUIDs abreviados, horário de compra e notificações específicas de alterações compartilhadas.

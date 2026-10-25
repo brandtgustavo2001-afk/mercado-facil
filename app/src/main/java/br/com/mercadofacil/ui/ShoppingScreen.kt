@@ -25,6 +25,7 @@ import br.com.mercadofacil.viewmodel.MainViewModel
 @Composable fun MercadoScreen(vm: MainViewModel) {
     val lists by vm.lists.collectAsStateWithLifecycle()
     val products by vm.items.collectAsStateWithLifecycle()
+    val purchases by vm.purchases.collectAsStateWithLifecycle()
     val selected by vm.selectedList.collectAsStateWithLifecycle()
     val config by vm.settings.collectAsStateWithLifecycle()
     val message by vm.message.collectAsStateWithLifecycle()
@@ -33,6 +34,8 @@ import br.com.mercadofacil.viewmodel.MainViewModel
     var draft by rememberSaveable { mutableStateOf("") }
     var inputError by remember { mutableStateOf<String?>(null) }
     var adding by remember { mutableStateOf(false) }
+    var paying by remember { mutableStateOf(false) }
+    var tab by rememberSaveable { mutableIntStateOf(0) }
     var menu by remember { mutableStateOf(false) }
     var preferences by remember { mutableStateOf(false) }
     var advanced by rememberSaveable { mutableStateOf(false) }
@@ -55,7 +58,8 @@ import br.com.mercadofacil.viewmodel.MainViewModel
             topBar = { TopAppBar(title = { Text("Outras opções") }, navigationIcon = { IconButton(onClick = { advanced = false }) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Voltar à lista") } }) }
         ) { padding -> SettingsScreen(vm, Modifier.padding(padding)) }
         else ShoppingContent(
-            listName = current?.name ?: "Minha lista", products = currentProducts, draft = draft,
+            listName = current?.name ?: "Minha lista", products = currentProducts, purchases = purchases,
+            selectedTab = tab, onTabChange = { tab = it }, draft = draft,
             onDraftChange = { draft = it; inputError = null },
             onAdd = {
                 val list = current
@@ -75,8 +79,22 @@ import br.com.mercadofacil.viewmodel.MainViewModel
                 }
             },
             onToggle = { vm.save(it.copy(purchased = !it.purchased)) },
+            onComplete = {
+                val list = current
+                if (list != null && !paying) {
+                    paying = true
+                    vm.run {
+                        try {
+                            if (vm.repository.completePurchase(list.id) != null) {
+                                vm.requestSync()
+                                tab = 1
+                            }
+                        } finally { paying = false }
+                    }
+                }
+            },
             onEdit = { edit = it }, onDelete = { delete = it },
-            loading = current == null, adding = adding, error = inputError, snackbar = snackbar,
+            loading = current == null, adding = adding, paying = paying, error = inputError, snackbar = snackbar,
             actions = {
                 Box {
                     IconButton(onClick = { menu = true }) { Icon(Icons.Outlined.MoreHoriz, "Menu da lista") }

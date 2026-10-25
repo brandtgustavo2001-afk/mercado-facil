@@ -4,6 +4,7 @@ import androidx.room.withTransaction
 import br.com.mercadofacil.database.*
 import br.com.mercadofacil.domain.Money
 import org.json.JSONObject
+import org.json.JSONArray
 import java.util.UUID
 
 class ShoppingRepository(val db: MercadoDatabase) {
@@ -34,6 +35,37 @@ class ShoppingRepository(val db: MercadoDatabase) {
         val list = requireNotNull(dao.list(item.listId))
         dao.save(list.copy(updatedAt = next.updatedAt))
         if (list.shared) dao.enqueue(SyncOperation(entityId = next.id, listId = next.listId, entityType = "item", payload = mutation(next.json(), before?.takeIf { it.version > 0 || dao.queued(it.id) > 0 }?.json()), baseVersion = next.version))
+    }
+    /** A checkout is atomic: only selected products move into its permanent snapshot. */
+    suspend fun completePurchase(listId: String, purchasedAt: Long = System.currentTimeMillis()): PurchaseHistory? = db.withTransaction {
+        val list = requireNotNull(dao.list(listId)) { "Lista não encontrada" }
+        val selected = dao.selectedItems(listId)
+        if (selected.isEmpty()) return@withTransaction null
+
+        val snapshots = JSONArray()
+        selected.forEach { item ->
+            snapshots.put(JSONObject()
+                .put("name", item.name).put("quantity", item.quantity).put("unit", item.unit)
+                .put("estimatedCents", item.estimatedCents).put("actualCents", item.actualCents ?: JSONObject.NULL))
+        }
+        val purchase = PurchaseHistory(
+            listId = listId, listName = list.name, createdAt = purchasedAt,
+            itemsJson = snapshots.toString(), itemCount = selected.size,
+            totalCents = selected.sumOf { Money.line(it.quantity, it.actualCents ?: it.estimatedCents) }
+        )
+        dao.save(purchase)
+        selected.forEach { item ->
+            val removed = item.copy(deleted = true, updatedAt = purchasedAt)
+            dao.save(removed)
+            if (list.shared) dao.enqueue(SyncOperation(
+                entityId = item.id, listId = listId, entityType = "item",
+                payload = mutation(removed.json(), item.takeIf { it.version > 0 || dao.queued(it.id) > 0 }?.json()),
+                baseVersion = item.version
+            ))
+        }
+        dao.save(list.copy(updatedAt = purchasedAt))
+        dao.trimPurchaseHistory()
+        purchase
     }
     suspend fun duplicate(list: ShoppingList) = db.withTransaction {
         val next = ShoppingList(name = "${list.name} (cópia)", description = list.description, market = list.market, budgetCents = list.budgetCents)

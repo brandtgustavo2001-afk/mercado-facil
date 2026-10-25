@@ -18,11 +18,11 @@ APK de teste: `app/build/outputs/apk/debug/app-debug.apk`. O Android exige autor
 
 ## Funcionalidades locais
 
-A tela inicial agora é uma lista direta: digite o produto no campo inferior e toque em **+**. O que falta comprar fica na seção **Para comprar**, no topo. Ao marcar um produto, ele passa para **Comprados**, abaixo; toque outra vez para desfazer a marcação. Edição, exclusão, compartilhamento e configurações continuam disponíveis nos menus. A identidade visual (ícone, cores, splash e componentes da lista) está documentada em [branding/IDENTIDADE.md](branding/IDENTIDADE.md).
+A tela inicial é uma lista direta: digite o produto no campo inferior e toque em **+**. O que falta comprar fica na seção **Para comprar**, no topo. Ao marcar um produto, ele passa para **Selecionados**, abaixo; toque outra vez para desfazer a seleção. Depois de pagar, use o botão fixo **Comprados** na parte inferior para transferir apenas os produtos selecionados ao **Histórico**. Itens ainda não selecionados continuam na lista. A aba de histórico guarda as **10 compras mais recentes** de todas as listas; registros mais antigos são automaticamente excluídos. O histórico é armazenado **neste aparelho** e incluído no backup JSON, mas não é sincronizado entre celulares pelo Supabase. Edição, exclusão, compartilhamento e configurações continuam disponíveis nos menus. A identidade visual está documentada em [branding/IDENTIDADE.md](branding/IDENTIDADE.md).
 
 Crie listas e produtos sem login e sem conexão. Preços são centavos inteiros; quantidades são decimais exatos, com até três casas. Cada linha é arredondada uma vez em HALF_UP. Há orçamento e projeção, marcação de compras, edição de preço e quantidade, duplicação, arquivo, exclusão confirmada, categorias, busca, sugestões de produtos anteriores, favoritos, histórico de listas, resumo por mês/categoria e temas claro/escuro/automático.
 
-Compartilhamento por texto funciona sem Supabase. Backups JSON e relatórios CSV usam o seletor de arquivos Android. Importar exige confirmação, é transacional, preserva os UUIDs e acrescenta registros ausentes sem substituir dados existentes. Listas importadas são locais. Backup atual cobre listas e itens; configurações e sessões não são exportadas.
+Compartilhamento por texto funciona sem Supabase. Backups JSON e relatórios CSV usam o seletor de arquivos Android. Importar exige confirmação, é transacional, preserva os UUIDs e acrescenta registros ausentes sem substituir dados existentes. Listas importadas são locais. O backup JSON versão 2 cobre listas, itens e as últimas 10 compras; restauração também aceita backups anteriores de versão 1. Configurações e sessões não são exportadas.
 
 Leitura de códigos usa Google Code Scanner: requer Google Play Services e o módulo de leitura disponível. Consulta opcional ao Open Food Facts por HTTPS; indisponibilidade ou produto ausente permite cadastro manual. A disponibilidade dessa base não é garantida.
 
@@ -79,7 +79,7 @@ Para criar a primeira chave local e compilar um release:
 python tools/build_release.py
 ```
 
-A chave e as senhas ficam **fora do repositório**, em `~/.codex/secrets/mercado-facil`. Faça backup seguro dessa pasta; perder a chave impede atualizar instalações existentes. O script não imprime senhas e reutiliza a chave nas próximas execuções. O arquivo `tools/build_release.py` gera a versão 1.0.4 por padrão; use `--version` e `--code` para selecionar outra versão.
+A chave e as senhas ficam **fora do repositório**, em `~/.codex/secrets/mercado-facil`. Faça backup seguro dessa pasta; perder a chave impede atualizar instalações existentes. O script não imprime senhas e reutiliza a chave nas próximas execuções. O arquivo `tools/build_release.py` gera a versão 1.0.5 por padrão; use `--version` e `--code` para selecionar outra versão.
 
 Configure os quatro Secrets no GitHub → Settings → Secrets and variables → Actions:
 

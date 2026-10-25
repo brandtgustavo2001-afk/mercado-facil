@@ -38,6 +38,17 @@ data class ShoppingItem(
     val version: Long = 0,
     val deleted: Boolean = false
 )
+/** Immutable, local snapshot of a paid checkout. The history is limited to ten checkouts. */
+@Entity(tableName = "purchase_history")
+data class PurchaseHistory(
+    @PrimaryKey val id: String = UUID.randomUUID().toString(),
+    val listId: String,
+    val listName: String,
+    val createdAt: Long,
+    val itemsJson: String,
+    val totalCents: Long,
+    val itemCount: Int
+)
 @Entity(tableName = "categories")
 data class Category(@PrimaryKey val name: String)
 @Entity(tableName = "sync_operations", indices = [Index("entityId")])
@@ -57,6 +68,11 @@ data class SyncOperation(
 interface ShoppingDao {
     @Query("SELECT * FROM shopping_lists WHERE deleted = 0 ORDER BY updatedAt DESC") fun lists(): Flow<List<ShoppingList>>
     @Query("SELECT * FROM shopping_items WHERE deleted = 0 ORDER BY purchased, position, name") fun items(): Flow<List<ShoppingItem>>
+    @Query("SELECT * FROM purchase_history ORDER BY createdAt DESC, id DESC") fun purchases(): Flow<List<PurchaseHistory>>
+    @Query("SELECT * FROM purchase_history WHERE id = :id") suspend fun purchase(id: String): PurchaseHistory?
+    @Insert suspend fun save(purchase: PurchaseHistory)
+    @Query("DELETE FROM purchase_history WHERE id NOT IN (SELECT id FROM purchase_history ORDER BY createdAt DESC, id DESC LIMIT 10)") suspend fun trimPurchaseHistory()
+    @Query("SELECT * FROM shopping_items WHERE listId = :listId AND purchased = 1 AND deleted = 0 ORDER BY position, name") suspend fun selectedItems(listId: String): List<ShoppingItem>
     @Query("SELECT * FROM categories ORDER BY name") fun categories(): Flow<List<Category>>
     @Query("SELECT * FROM shopping_lists") suspend fun allLists(): List<ShoppingList>
     @Query("SELECT * FROM shopping_items") suspend fun allItems(): List<ShoppingItem>
@@ -76,7 +92,7 @@ interface ShoppingDao {
     @Query("UPDATE sync_operations SET status = :status, error = :error, retryCount = retryCount + 1 WHERE operationId = :id") suspend fun failed(id: String, status: String, error: String)
     @Query("SELECT COUNT(*) FROM sync_operations WHERE entityId = :id") suspend fun queued(id: String): Int
 }
-@Database(entities = [ShoppingList::class, ShoppingItem::class, Category::class, SyncOperation::class], version = 1, exportSchema = true)
+@Database(entities = [ShoppingList::class, ShoppingItem::class, Category::class, SyncOperation::class, PurchaseHistory::class], version = 2, exportSchema = true)
 abstract class MercadoDatabase : RoomDatabase() { abstract fun dao(): ShoppingDao }
 
 val defaultCategories = listOf("Açougue", "Hortifruti", "Padaria", "Laticínios", "Bebidas", "Mercearia", "Congelados", "Limpeza", "Higiene pessoal", "Pet Shop", "Farmácia", "Outros")
