@@ -13,6 +13,11 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.CloudSync
+import androidx.compose.material.icons.outlined.SystemUpdateAlt
+import androidx.compose.material.icons.outlined.Palette
+import androidx.compose.material.icons.outlined.FolderCopy
+import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material.icons.outlined.ExpandLess
 import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.Visibility
@@ -22,6 +27,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -111,13 +117,18 @@ import java.util.Date
         }
     }
 
-    Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 20.dp),
+    Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 22.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        Text("Ajustes do Mercado Fácil", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-        Text("Sua conta, atualizações e preferências em um só lugar.",
-            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("PERSONALIZE SUA EXPERIÊNCIA", style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+        Text("Conta e ajustes", style = MaterialTheme.typography.headlineSmall)
+        Text("Gerencie sua conta e suas preferências.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(bottom = 8.dp))
 
-        SettingsPanel("Conta e sincronização", "Compartilhe listas entre celulares.", initiallyExpanded = true) {
+        SettingsPanel("Conta e sincronização", "Suas listas em todos os celulares.",
+            icon = Icons.Outlined.CloudSync, initiallyExpanded = true) {
             if (email.isNotBlank()) {
                 Text("Conta conectada", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.SemiBold)
@@ -130,21 +141,25 @@ import java.util.Date
             } else {
                 Text("Entre para acessar listas compartilhadas em outros celulares. A lista local funciona sem conta.",
                     style = MaterialTheme.typography.bodyMedium)
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (signup) OutlinedButton(onClick = { signup = false; authFeedback = "" }, modifier = Modifier.weight(1f)) { Text("Entrar") }
-                    else Button(onClick = { signup = false; authFeedback = "" }, modifier = Modifier.weight(1f)) { Text("Entrar") }
-                    if (signup) Button(onClick = {}, modifier = Modifier.weight(1f)) { Text("Criar conta") }
-                    else OutlinedButton(onClick = { signup = true; authFeedback = "" }, modifier = Modifier.weight(1f)) { Text("Criar conta") }
+                Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (signup) OutlinedButton(onClick = { signup = false; authFeedback = "" }, modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(13.dp)) { Text("Entrar") }
+                    else Button(onClick = { signup = false; authFeedback = "" }, modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(13.dp)) { Text("Entrar") }
+                    if (signup) Button(onClick = {}, modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(13.dp)) { Text("Criar conta") }
+                    else OutlinedButton(onClick = { signup = true; authFeedback = "" }, modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(13.dp)) { Text("Criar conta") }
                 }
                 if (signup) {
                     Text("Crie sua conta com e-mail e senha.", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
                     OutlinedTextField(name, { name = it }, label = { Text("Seu nome") }, singleLine = true,
-                        enabled = !authBusy, modifier = Modifier.fillMaxWidth())
+                        enabled = !authBusy, shape = RoundedCornerShape(14.dp), modifier = Modifier.fillMaxWidth())
                 }
                 OutlinedTextField(loginEmail, { loginEmail = it.trim(); authFeedback = "" },
                     label = { Text("E-mail") }, placeholder = { Text("voce@exemplo.com") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                    singleLine = true, enabled = !authBusy, modifier = Modifier.fillMaxWidth())
+                    singleLine = true, enabled = !authBusy, shape = RoundedCornerShape(14.dp), modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(password, { password = it; authFeedback = "" }, label = { Text("Senha") },
                     supportingText = if (signup) ({ Text("Pelo menos 8 caracteres.") }) else null,
                     visualTransformation = if (showPassword) VisualTransformation.None else PasswordVisualTransformation(),
@@ -155,18 +170,19 @@ import java.util.Date
                                 if (showPassword) "Ocultar senha" else "Mostrar senha")
                         }
                     },
-                    singleLine = true, enabled = !authBusy, modifier = Modifier.fillMaxWidth())
+                    singleLine = true, enabled = !authBusy, shape = RoundedCornerShape(14.dp), modifier = Modifier.fillMaxWidth())
                 if (signup) OutlinedTextField(confirmation, { confirmation = it; authFeedback = "" },
                     label = { Text("Confirmar senha") }, visualTransformation = PasswordVisualTransformation(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                    singleLine = true, enabled = !authBusy, modifier = Modifier.fillMaxWidth())
+                    singleLine = true, enabled = !authBusy, shape = RoundedCornerShape(14.dp), modifier = Modifier.fillMaxWidth())
 
                 if (authFeedback.isNotBlank()) Surface(color = if (authError) MaterialTheme.colorScheme.errorContainer
                     else MaterialTheme.colorScheme.secondaryContainer, shape = RoundedCornerShape(12.dp)) {
                     Text(authFeedback, Modifier.fillMaxWidth().padding(12.dp), style = MaterialTheme.typography.bodyMedium,
                         color = if (authError) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSecondaryContainer)
                 }
-                Button(enabled = !authBusy, modifier = Modifier.fillMaxWidth().heightIn(min = 50.dp), onClick = {
+                Button(enabled = !authBusy, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
+                    shape = RoundedCornerShape(14.dp), onClick = {
                     val validation = AuthFeedback.validate(name, loginEmail, password, confirmation, signup)
                     if (validation != null) { authFeedback = validation; authError = true }
                     else {
@@ -209,7 +225,7 @@ import java.util.Date
             }
         }
 
-        SettingsPanel("Atualizações do app", "Veja a versão instalada e procure novidades.") {
+        SettingsPanel("Atualizações do app", "Versão instalada e novidades.", icon = Icons.Outlined.SystemUpdateAlt) {
             Text("Versão instalada: ${BuildConfig.VERSION_NAME}", fontWeight = FontWeight.SemiBold)
             Text("Última verificação: ${if (config.lastCheck == 0L) "nunca" else DateFormat.getDateTimeInstance().format(Date(config.lastCheck))}",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -240,7 +256,7 @@ import java.util.Date
             }) { Text("Instalar atualização") } }
         }
 
-        SettingsPanel("Aparência e lembretes", "Escolha o tema e configure lembretes de compras.") {
+        SettingsPanel("Aparência e lembretes", "Tema e avisos de compras.", icon = Icons.Outlined.Palette) {
             Choice("Tema do aplicativo", when (config.theme) { "light" -> "Claro"; "dark" -> "Escuro"; else -> "Automático" },
                 listOf("Automático", "Claro", "Escuro")) { selected ->
                 vm.run { vm.app.settings.save(config.copy(theme = when (selected) { "Claro" -> "light"; "Escuro" -> "dark"; else -> "auto" })) }
@@ -270,7 +286,7 @@ import java.util.Date
             }
         }
 
-        SettingsPanel("Meus dados e backups", "Salve ou recupere suas listas e compras.") {
+        SettingsPanel("Meus dados e backups", "Guarde suas listas com segurança.", icon = Icons.Outlined.FolderCopy) {
             Text("O backup inclui suas listas e as últimas 10 compras.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Button(onClick = { export.launch("mercado-facil-backup.json") }, modifier = Modifier.fillMaxWidth()) { Text("Salvar backup") }
@@ -282,7 +298,7 @@ import java.util.Date
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
 
-        SettingsPanel("Opções avançadas", "Conexão com o servidor, repositório e categorias.") {
+        SettingsPanel("Opções avançadas", "Servidor, repositório e categorias.", icon = Icons.Outlined.Tune) {
             Text("Conexão Supabase", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
             Text("O Mercado Fácil já vem configurado. Altere estes campos somente se usar outro projeto.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -341,25 +357,31 @@ import java.util.Date
 @Composable private fun SettingsPanel(
     title: String,
     subtitle: String,
+    icon: ImageVector,
     initiallyExpanded: Boolean = false,
     content: @Composable ColumnScope.() -> Unit
 ) {
     var expanded by rememberSaveable(title) { mutableStateOf(initiallyExpanded) }
-    Surface(color = MaterialTheme.colorScheme.surface, shape = RoundedCornerShape(20.dp),
+    Surface(color = MaterialTheme.colorScheme.surface, shape = RoundedCornerShape(21.dp),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
         Column {
-            Row(Modifier.fillMaxWidth().clickable { expanded = !expanded }.padding(18.dp),
-                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(Modifier.fillMaxWidth().clickable { expanded = !expanded }.padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(13.dp)) {
+                Surface(color = MaterialTheme.colorScheme.primaryContainer, shape = RoundedCornerShape(13.dp)) {
+                    Icon(icon, null, modifier = Modifier.padding(11.dp).size(22.dp),
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                }
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    Text(title, style = MaterialTheme.typography.titleMedium)
                     Text(subtitle, style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Icon(if (expanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
-                    if (expanded) "Recolher $title" else "Abrir $title")
+                    if (expanded) "Recolher $title" else "Abrir $title",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             AnimatedVisibility(expanded) {
-                Column(Modifier.fillMaxWidth().padding(start = 18.dp, end = 18.dp, bottom = 20.dp),
+                Column(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 18.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp), content = content)
             }
         }
