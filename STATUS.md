@@ -17,6 +17,7 @@ Este projeto é uma primeira implementação funcional, **não a conclusão inte
 - Corrigida a causa da ausência de atualização: releases estavam marcadas como pré-release e `/releases/latest` retornava 404. A 1.0.1 foi disponibilizada no canal normal; o workflow foi corrigido para publicar releases completas nesse canal.
 - Versão 1.0.2 acrescenta aviso de atualização acionável na abertura/retorno ao app e cache da versão encontrada. A confirmação do instalador Android continua obrigatória.
 - Versão 1.0.3 simplifica a tela inicial com inclusão rápida, itens pendentes em cima e comprados embaixo, preservando as listas existentes. Compilação debug, 32 testes unitários e Lint concluídos sem erros; validação visual em celular ainda pendente.
+- Versão 1.0.4 adiciona identidade visual: ícone adaptativo Android com variante monocromática, tela de abertura, paleta verde/creme/dourado e cartões na tela de compras. A validação em celular continua pendente.
 
 ## Implementado, com validação externa pendente
 

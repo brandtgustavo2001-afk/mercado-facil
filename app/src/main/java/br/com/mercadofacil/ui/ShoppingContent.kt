@@ -4,6 +4,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -14,7 +15,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -23,19 +26,23 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import br.com.mercadofacil.R
 import br.com.mercadofacil.database.ShoppingItem
 
 @Composable fun ShoppingTheme(dark: Boolean, content: @Composable () -> Unit) {
     val colors = if (dark) darkColorScheme(
-        primary = Color(0xFF89D6A7), onPrimary = Color(0xFF153D24),
-        background = Color(0xFF121713), surface = Color(0xFF19201B),
-        onBackground = Color(0xFFE5EDE7), onSurface = Color(0xFFE5EDE7),
-        onSurfaceVariant = Color(0xFFAAB8AE), outline = Color(0xFF788A7D), outlineVariant = Color(0xFF35443A)
+        primary = Color(0xFF97D8B9), onPrimary = Color(0xFF103A2C),
+        secondary = Color(0xFFF6C96E), onSecondary = Color(0xFF3F2A08),
+        background = Color(0xFF101A16), surface = Color(0xFF192821), surfaceVariant = Color(0xFF24382D),
+        onBackground = Color(0xFFF1F5EE), onSurface = Color(0xFFF1F5EE),
+        onSurfaceVariant = Color(0xFFB3C7BA), outline = Color(0xFF91A69A), outlineVariant = Color(0xFF32483C)
     ) else lightColorScheme(
-        primary = Color(0xFF176840), onPrimary = Color.White,
-        background = Color(0xFFF8FAF7), surface = Color.White,
-        onBackground = Color(0xFF202E24), onSurface = Color(0xFF202E24),
-        onSurfaceVariant = Color(0xFF626F66), outline = Color(0xFF7C8A80), outlineVariant = Color(0xFFDCE4DD)
+        primary = Color(0xFF165A43), onPrimary = Color(0xFFFFFFFF),
+        secondary = Color(0xFFE2A945), onSecondary = Color(0xFF382505),
+        background = Color(0xFFF6F8F3), surface = Color(0xFFFFFFFF), surfaceVariant = Color(0xFFEDF3EA),
+        onBackground = Color(0xFF1D3026), onSurface = Color(0xFF1D3026),
+        onSurfaceVariant = Color(0xFF52695A), outline = Color(0xFF6E8475), outlineVariant = Color(0xFFDEE9DC)
     )
     MaterialTheme(colorScheme = colors, content = content)
 }
@@ -62,23 +69,27 @@ import br.com.mercadofacil.database.ShoppingItem
         containerColor = MaterialTheme.colorScheme.background,
         snackbarHost = { SnackbarHost(snackbar) },
         topBar = { TopAppBar(
-            title = { Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Icon(Icons.Outlined.ShoppingBasket, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(26.dp))
-                Text("Mercado Fácil", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+            title = { Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                BrandBadge()
+                Column {
+                    Text("Mercado Fácil", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, letterSpacing = (-0.5).sp)
+                    Text("Sua lista, sem complicação", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             } },
             actions = actions,
             colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
         ) },
         bottomBar = {
-            Surface(color = MaterialTheme.colorScheme.surface) {
-                Column(Modifier.navigationBarsPadding().imePadding()) {
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                    Row(Modifier.fillMaxWidth().widthIn(max = 640.dp).padding(16.dp), verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Surface(color = MaterialTheme.colorScheme.surface, shadowElevation = 10.dp,
+                shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)) {
+                Column(Modifier.navigationBarsPadding().imePadding(), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Row(Modifier.fillMaxWidth().widthIn(max = 640.dp).padding(start = 18.dp, end = 18.dp, top = 14.dp, bottom = 16.dp),
+                        verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         OutlinedTextField(
                             value = draft, onValueChange = onDraftChange,
                             label = { Text("O que precisa comprar?") },
                             placeholder = { Text("Ex.: arroz, leite, café") },
-                            modifier = Modifier.weight(1f), shape = RoundedCornerShape(14.dp),
+                            modifier = Modifier.weight(1f), shape = RoundedCornerShape(16.dp),
                             singleLine = true, enabled = !loading && !adding,
                             isError = error != null,
                             supportingText = if (error != null) ({ Text(error) }) else null,
@@ -87,7 +98,7 @@ import br.com.mercadofacil.database.ShoppingItem
                         )
                         FilledIconButton(
                             onClick = onAdd, enabled = !loading && !adding && draft.isNotBlank(),
-                            modifier = Modifier.padding(top = 8.dp).size(56.dp), shape = RoundedCornerShape(14.dp)
+                            modifier = Modifier.padding(top = 8.dp).size(56.dp), shape = RoundedCornerShape(16.dp)
                         ) { if (adding) CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp) else Icon(Icons.Outlined.Add, "Adicionar produto", Modifier.size(26.dp)) }
                     }
                 }
@@ -98,15 +109,15 @@ import br.com.mercadofacil.database.ShoppingItem
             if (loading) CircularProgressIndicator(Modifier.padding(48.dp))
             else LazyColumn(
                 Modifier.fillMaxSize().widthIn(max = 640.dp),
-                contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 18.dp, bottom = 28.dp)
+                contentPadding = PaddingValues(start = 18.dp, end = 18.dp, top = 20.dp, bottom = 28.dp)
             ) {
                 if (listName != "Minha lista") item("list-name") {
-                    Text(listName, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(bottom = 20.dp))
+                    Text(listName, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(bottom = 20.dp, start = 4.dp))
                 }
                 if (pending.isNotEmpty() || purchased.isEmpty()) item("pending-heading") { SectionTitle("Para comprar", pending.size) }
                 if (products.isEmpty()) item("empty") { EmptyState("Sua lista começa aqui", "Adicione o primeiro produto no campo abaixo.") }
                 if (pending.isEmpty() && purchased.isNotEmpty()) item("complete") {
-                    Row(Modifier.padding(vertical = 20.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Row(Modifier.padding(vertical = 24.dp, horizontal = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         Icon(Icons.Outlined.CheckCircle, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(28.dp))
                         Column { Text("Tudo comprado!", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold); Text("Pode adicionar mais produtos quando precisar.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                     }
@@ -115,7 +126,7 @@ import br.com.mercadofacil.database.ShoppingItem
                     ShoppingRow(product, { onToggle(product) }, { onEdit(product) }, { onDelete(product) }, Modifier.animateItem(placementSpec = tween(180)))
                 }
                 if (purchased.isNotEmpty()) item("purchased-heading") {
-                    Spacer(Modifier.height(28.dp)); SectionTitle("Comprados", purchased.size)
+                    Spacer(Modifier.height(22.dp)); SectionTitle("Comprados", purchased.size)
                 }
                 items(purchased, key = { it.id }) { product ->
                     ShoppingRow(product, { onToggle(product) }, { onEdit(product) }, { onDelete(product) }, Modifier.animateItem(placementSpec = tween(180)))
@@ -125,23 +136,35 @@ import br.com.mercadofacil.database.ShoppingItem
     }
 }
 
+@Composable private fun BrandBadge() {
+    Box(Modifier.size(48.dp).clip(RoundedCornerShape(15.dp)).background(Color(0xFF165A43)), contentAlignment = Alignment.Center) {
+        Image(painter = painterResource(R.drawable.ic_launcher_foreground), contentDescription = null, modifier = Modifier.size(66.dp))
+    }
+}
+
 @Composable private fun SectionTitle(title: String, count: Int) {
-    Row(Modifier.fillMaxWidth().padding(bottom = 12.dp).semantics { heading() }, verticalAlignment = Alignment.CenterVertically) {
-        Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-        Text(count.toString(), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Row(Modifier.fillMaxWidth().padding(start = 4.dp, end = 4.dp, bottom = 12.dp).semantics { heading() }, verticalAlignment = Alignment.CenterVertically) {
+        Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+        Surface(shape = CircleShape, color = MaterialTheme.colorScheme.surfaceVariant) {
+            Text(count.toString(), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp))
+        }
     }
 }
 
 @Composable private fun ShoppingRow(product: ShoppingItem, toggle: () -> Unit, edit: () -> Unit, delete: () -> Unit, modifier: Modifier) {
     var menu by remember { mutableStateOf(false) }
-    Column(modifier.fillMaxWidth()) {
+    Surface(modifier.fillMaxWidth().padding(bottom = 10.dp), shape = RoundedCornerShape(18.dp),
+        color = if (product.purchased) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
         Row(
-            Modifier.fillMaxWidth().heightIn(min = 74.dp).toggleable(value = product.purchased, role = Role.Checkbox, onValueChange = { toggle() }).padding(start = 2.dp, top = 8.dp, bottom = 8.dp),
+            Modifier.fillMaxWidth().heightIn(min = 74.dp).toggleable(value = product.purchased, role = Role.Checkbox, onValueChange = { toggle() })
+                .padding(start = 16.dp, end = 6.dp, top = 8.dp, bottom = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(if (product.purchased) Icons.Outlined.CheckCircle else Icons.Outlined.RadioButtonUnchecked, null,
                 tint = if (product.purchased) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
-                modifier = Modifier.padding(end = 14.dp).size(26.dp))
+                modifier = Modifier.padding(end = 14.dp).size(28.dp))
             Column(Modifier.weight(1f)) {
                 Text(product.name, style = MaterialTheme.typography.bodyLarge, fontWeight = if (product.purchased) FontWeight.Normal else FontWeight.Medium,
                     color = if (product.purchased) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
@@ -156,15 +179,18 @@ import br.com.mercadofacil.database.ShoppingItem
                 }
             }
         }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.7f))
     }
 }
 
 @Composable fun EmptyState(title: String, text: String) {
-    Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 64.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Icon(Icons.Outlined.ShoppingBag, null, tint = MaterialTheme.colorScheme.outline, modifier = Modifier.size(48.dp))
-        Spacer(Modifier.height(20.dp))
-        Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Medium)
-        Text(text, Modifier.padding(top = 8.dp), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Surface(Modifier.fillMaxWidth().padding(top = 14.dp), color = MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(24.dp), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 42.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            BrandBadge()
+            Spacer(Modifier.height(20.dp))
+            Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text(text, Modifier.padding(top = 8.dp), style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
     }
 }
