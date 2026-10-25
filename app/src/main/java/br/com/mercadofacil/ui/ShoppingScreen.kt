@@ -22,6 +22,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import br.com.mercadofacil.BuildConfig
 import br.com.mercadofacil.database.*
 import br.com.mercadofacil.domain.Money
+import br.com.mercadofacil.domain.quickShoppingItem
 import br.com.mercadofacil.viewmodel.MainViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -36,7 +37,9 @@ import br.com.mercadofacil.viewmodel.MainViewModel
     val current = lists.find { it.id == selected } ?: lists.firstOrNull { it.status == "active" }
     val currentProducts = products.filter { it.listId == current?.id }
     var draft by rememberSaveable { mutableStateOf("") }
+    var quantity by rememberSaveable { mutableStateOf("1") }
     var inputError by remember { mutableStateOf<String?>(null) }
+    var quantityError by remember { mutableStateOf<String?>(null) }
     var adding by remember { mutableStateOf(false) }
     var paying by remember { mutableStateOf(false) }
     var tab by rememberSaveable { mutableIntStateOf(0) }
@@ -57,7 +60,7 @@ import br.com.mercadofacil.viewmodel.MainViewModel
     LaunchedEffect(vm, lifecycleOwner) {
         lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) { vm.app.sync.watch() }
     }
-    LaunchedEffect(selected) { tab = 0; draft = ""; inputError = null }
+    LaunchedEffect(selected) { tab = 0; draft = ""; quantity = "1"; inputError = null; quantityError = null }
     BackHandler(advanced) { advanced = false }
     ShoppingTheme(dark) {
         UpdatePrompt(vm, checkUpdates)
@@ -70,20 +73,26 @@ import br.com.mercadofacil.viewmodel.MainViewModel
             syncStatus = if (current?.shared == true) syncStatus else null,
             selectedTab = tab, onTabChange = { tab = it }, draft = draft,
             onDraftChange = { draft = it; inputError = null },
+            quantity = quantity, onQuantityChange = { quantity = it; quantityError = null },
             onAdd = {
                 val list = current
                 val name = draft.trim()
                 if (name.length > 200) inputError = "Use até 200 caracteres para o produto."
                 else if (list != null && name.isNotEmpty() && !adding) {
-                    adding = true
-                    vm.run {
-                        try {
-                            val position = (currentProducts.maxOfOrNull { it.position } ?: -1) + 1
-                            vm.repository.save(ShoppingItem(listId = list.id, name = name, position = position))
-                            if (list.status != "active") vm.save(list.copy(status = "active"))
-                            draft = ""
-                            vm.requestSync()
-                        } finally { adding = false }
+                    val position = (currentProducts.maxOfOrNull { it.position } ?: -1) + 1
+                    val item = runCatching { quickShoppingItem(list.id, name, quantity, position) }
+                        .onFailure { quantityError = it.message ?: "Quantidade inválida." }.getOrNull()
+                    if (item != null) {
+                        adding = true
+                        vm.run {
+                            try {
+                                vm.repository.save(item)
+                                if (list.status != "active") vm.save(list.copy(status = "active"))
+                                draft = ""
+                                quantity = "1"
+                                vm.requestSync()
+                            } finally { adding = false }
+                        }
                     }
                 }
             },
@@ -103,7 +112,8 @@ import br.com.mercadofacil.viewmodel.MainViewModel
                 }
             },
             onEdit = { edit = it }, onDelete = { delete = it },
-            loading = current == null, adding = adding, paying = paying, error = inputError, snackbar = snackbar,
+            loading = current == null, adding = adding, paying = paying, error = inputError,
+            quantityError = quantityError, snackbar = snackbar,
             actions = {
                 Box {
                     IconButton(onClick = { menu = true }) { Icon(Icons.Outlined.MoreVert, "Menu da lista") }

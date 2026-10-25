@@ -26,6 +26,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -84,6 +85,8 @@ import java.util.Locale
     onTabChange: (Int) -> Unit,
     draft: String,
     onDraftChange: (String) -> Unit,
+    quantity: String,
+    onQuantityChange: (String) -> Unit,
     onAdd: () -> Unit,
     onToggle: (ShoppingItem) -> Unit,
     onComplete: () -> Unit,
@@ -94,6 +97,7 @@ import java.util.Locale
     adding: Boolean = false,
     paying: Boolean = false,
     error: String? = null,
+    quantityError: String? = null,
     snackbar: SnackbarHostState = remember { SnackbarHostState() },
     actions: @Composable RowScope.() -> Unit = {}
 ) {
@@ -148,22 +152,33 @@ import java.util.Locale
                                 color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
-                    Row(Modifier.fillMaxWidth().widthIn(max = 640.dp).padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Column(Modifier.fillMaxWidth().widthIn(max = 640.dp).padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 12.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedTextField(
                             value = draft, onValueChange = onDraftChange,
                             placeholder = { Text("Adicionar produto...") },
-                            modifier = Modifier.weight(1f), shape = RoundedCornerShape(15.dp),
+                            modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(15.dp),
                             singleLine = true, enabled = !loading && !adding,
                             isError = error != null,
                             supportingText = if (error != null) ({ Text(error) }) else null,
-                            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences, imeAction = ImeAction.Done),
-                            keyboardActions = KeyboardActions(onDone = { if (draft.isNotBlank() && !adding) onAdd() })
+                            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences, imeAction = ImeAction.Next)
                         )
-                        FilledIconButton(
-                            onClick = onAdd, enabled = !loading && !adding && draft.isNotBlank(),
-                            modifier = Modifier.size(54.dp), shape = RoundedCornerShape(15.dp)
-                        ) { if (adding) CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp) else Icon(Icons.Outlined.Add, "Adicionar produto", Modifier.size(26.dp)) }
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            OutlinedTextField(
+                                value = quantity, onValueChange = onQuantityChange,
+                                label = { Text("Quantidade") },
+                                modifier = Modifier.weight(1f), shape = RoundedCornerShape(15.dp),
+                                singleLine = true, enabled = !loading && !adding,
+                                isError = quantityError != null,
+                                supportingText = if (quantityError != null) ({ Text(quantityError) }) else null,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done),
+                                keyboardActions = KeyboardActions(onDone = { if (draft.isNotBlank() && !adding && !loading) onAdd() })
+                            )
+                            FilledIconButton(
+                                onClick = onAdd, enabled = !loading && !adding && draft.isNotBlank(),
+                                modifier = Modifier.size(54.dp), shape = RoundedCornerShape(15.dp)
+                            ) { if (adding) CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp) else Icon(Icons.Outlined.Add, "Adicionar produto", Modifier.size(26.dp)) }
+                        }
                     }
                 }
             }
@@ -294,7 +309,7 @@ import java.util.Locale
                 Text(product.name, style = MaterialTheme.typography.bodyLarge, fontWeight = if (product.purchased) FontWeight.Normal else FontWeight.Medium,
                     color = if (product.purchased) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
                     textDecoration = if (product.purchased) TextDecoration.LineThrough else TextDecoration.None)
-                if (product.quantity != "1" || product.unit != "un") Text("${product.quantity.replace('.', ',')} ${product.unit}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 3.dp))
+                Text("${product.quantity.replace('.', ',')} ${product.unit}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 3.dp))
             }
             Box {
                 IconButton(onClick = { menu = true }) { Icon(Icons.Outlined.MoreHoriz, "Opções de ${product.name}", tint = MaterialTheme.colorScheme.onSurfaceVariant) }

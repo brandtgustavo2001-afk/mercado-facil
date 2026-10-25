@@ -6,6 +6,7 @@ import androidx.test.core.app.ApplicationProvider
 import br.com.mercadofacil.data.Settings
 import br.com.mercadofacil.database.*
 import br.com.mercadofacil.repository.ShoppingRepository
+import br.com.mercadofacil.domain.quickShoppingItem
 import br.com.mercadofacil.sync.*
 import kotlinx.coroutines.runBlocking
 import okhttp3.*
@@ -65,7 +66,7 @@ class SharedShoppingTest {
             guest.join("b".repeat(64))
             assertEquals("Arroz", second.dao.allItems().single().name)
             assertEquals("Sábado", second.dao.list(list.id)?.description)
-            val nescau = ShoppingItem(listId = list.id, name = "Nescau", quantity = "2", unit = "pct",
+            val nescau = quickShoppingItem(list.id, "Nescau", "2", 1).copy(unit = "pct",
                 brand = "Nestlé", notes = "400 g", estimatedCents = 1200, actualCents = 1100, category = "Mercearia")
             first.save(nescau); owner.sync(); guest.sync()
             val received = requireNotNull(second.dao.item(nescau.id))
