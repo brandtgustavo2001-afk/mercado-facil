@@ -16,6 +16,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import br.com.mercadofacil.BuildConfig
 import br.com.mercadofacil.database.*
 import br.com.mercadofacil.domain.Money
@@ -29,6 +32,7 @@ import br.com.mercadofacil.viewmodel.MainViewModel
     val selected by vm.selectedList.collectAsStateWithLifecycle()
     val config by vm.settings.collectAsStateWithLifecycle()
     val message by vm.message.collectAsStateWithLifecycle()
+    val syncStatus by vm.app.sync.status.collectAsStateWithLifecycle()
     val current = lists.find { it.id == selected } ?: lists.firstOrNull { it.status == "active" }
     val currentProducts = products.filter { it.listId == current?.id }
     var draft by rememberSaveable { mutableStateOf("") }
@@ -47,9 +51,13 @@ import br.com.mercadofacil.viewmodel.MainViewModel
     var checkUpdates by remember { mutableIntStateOf(0) }
     val snackbar = remember { SnackbarHostState() }
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
     val dark = config.theme == "dark" || config.theme == "auto" && isSystemInDarkTheme()
     LaunchedEffect(message) { message?.let { snackbar.showSnackbar(it); vm.message.value = null } }
-    LaunchedEffect(Unit) { vm.app.sync.watch() }
+    LaunchedEffect(vm, lifecycleOwner) {
+        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) { vm.app.sync.watch() }
+    }
+    LaunchedEffect(selected) { tab = 0; draft = ""; inputError = null }
     BackHandler(advanced) { advanced = false }
     ShoppingTheme(dark) {
         UpdatePrompt(vm, checkUpdates)
@@ -59,6 +67,7 @@ import br.com.mercadofacil.viewmodel.MainViewModel
         ) { padding -> SettingsScreen(vm, Modifier.padding(padding)) }
         else ShoppingContent(
             listName = current?.name ?: "Minha lista", products = currentProducts, purchases = purchases,
+            syncStatus = if (current?.shared == true) syncStatus else null,
             selectedTab = tab, onTabChange = { tab = it }, draft = draft,
             onDraftChange = { draft = it; inputError = null },
             onAdd = {
@@ -119,7 +128,7 @@ import br.com.mercadofacil.viewmodel.MainViewModel
         }, confirmButton = { TextButton(onClick = { preferences = false }) { Text("Fechar") } })
         if (chooseList) AlertDialog(onDismissRequest = { chooseList = false }, title = { Text("Suas listas") }, text = {
             Column(Modifier.verticalScroll(rememberScrollState())) {
-                lists.forEach { list -> TextButton(onClick = { vm.run { vm.app.settings.selectList(list.id) }; chooseList = false }) { Text(list.name) } }
+                lists.forEach { list -> TextButton(onClick = { vm.run { vm.app.settings.selectList(list.id) }; chooseList = false }) { Text(list.name + if (list.shared) " · Compartilhada" else " · Neste celular") } }
                 TextButton(onClick = { chooseList = false; newList = true }) { Text("Criar outra lista") }
             }
         }, confirmButton = { TextButton(onClick = { chooseList = false }) { Text("Fechar") } })
@@ -133,7 +142,7 @@ import br.com.mercadofacil.viewmodel.MainViewModel
         delete?.let { product -> AlertDialog(onDismissRequest = { delete = null }, title = { Text("Excluir ${product.name}?") }, text = { Text("O produto será removido da lista.") },
             confirmButton = { TextButton(onClick = { vm.save(product.copy(deleted = true)); delete = null }) { Text("Excluir") } },
             dismissButton = { TextButton(onClick = { delete = null }) { Text("Cancelar") } }) }
-        if (sharing && current != null) ShareDialog(vm, current, { sharing = false }) {
+        if (sharing && current != null) ShareDialog(vm, current, { sharing = false }, { sharing = false; advanced = true }) {
             val text = current.name + "\n" + currentProducts.joinToString("\n") { "${if (it.purchased) "✓" else "□"} ${it.name}${if (it.quantity != "1") " (${it.quantity} ${it.unit})" else ""}" }
             context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, text), "Compartilhar lista"))
         }

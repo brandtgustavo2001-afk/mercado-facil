@@ -4,6 +4,8 @@ Este projeto é uma primeira implementação funcional, **não a conclusão inte
 
 ## Verificado no ambiente local
 
+- Versão 1.0.10 corrige seleção automática da lista recebida, compartilhamento com convite, envio imediato em primeiro plano e recuperação de eventos. Oito testes de integração locais usam duas bases Room e um servidor HTTP simulado, sem certificar dois aparelhos físicos nem o Realtime de produção. Corrigidos bloqueio de recebimento por falha em outra lista, falso status de sincronização e conflito durante edição após confirmação do envio. O histórico de compras pagas continua local.
+
 - Compilação do APK debug e do APK de testes de instrumentação.
 - Quarenta e dois testes automatizados: cálculos, SemVer, sincronização, Room/SQLite, configuração do backend, seleção segura de releases, cache de atualizações, lista simplificada, compras pagas, migração, backup de histórico, cadastro e mensagens de erro da autenticação.
 - Android Lint sem erros; há avisos de atualização de dependências e recomendações.

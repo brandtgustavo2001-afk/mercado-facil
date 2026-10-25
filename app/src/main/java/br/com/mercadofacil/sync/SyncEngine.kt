@@ -17,9 +17,13 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.*
 import java.util.concurrent.TimeUnit
 
-class SyncEngine(private val context: Context, private val repository: ShoppingRepository, private val settings: Settings) {
-    private val client = OkHttpClient.Builder().connectTimeout(20, TimeUnit.SECONDS).readTimeout(30, TimeUnit.SECONDS).build()
-    private val sessionStore = SessionStore(context)
+class SyncEngine(
+    private val context: Context,
+    private val repository: ShoppingRepository,
+    private val settings: Settings,
+    private val client: OkHttpClient = OkHttpClient.Builder().connectTimeout(20, TimeUnit.SECONDS).readTimeout(30, TimeUnit.SECONDS).build(),
+    private val sessionStore: SessionStorage = SessionStore(context)
+) {
     private val mutex = Mutex()
     private val authMutex = Mutex()
     val status = MutableStateFlow("Somente neste aparelho")
@@ -73,16 +77,30 @@ class SyncEngine(private val context: Context, private val repository: ShoppingR
         if (!configured() || email.value.isBlank()) return@withLock
         status.value = "Sincronizando…"
         try {
+            var uploadFailure: Exception? = null
+            val blockedLists = mutableSetOf<String>()
             for (op in repository.dao.pending()) {
+                if (op.listId in blockedLists) continue
                 if (repository.dao.conflicting(op.entityId) > 0) continue
-                val payload = JSONObject(op.payload)
-                val result = JSONObject(rpc("apply_operation", JSONObject().put("op_id", op.operationId).put("entity", op.entityType).put("entity_id", op.entityId).put("target_list", op.listId).put("patch", payload.getJSONObject("data")).put("base", payload.getJSONObject("base"))))
-                if (result.optBoolean("conflict")) repository.dao.failed(op.operationId, "conflict", result.toString())
-                else repository.db.withTransaction { repository.dao.ack(op.operationId) }
+                try {
+                    val payload = JSONObject(op.payload)
+                    val result = JSONObject(rpc("apply_operation", JSONObject().put("op_id", op.operationId).put("entity", op.entityType).put("entity_id", op.entityId).put("target_list", op.listId).put("patch", payload.getJSONObject("data")).put("base", payload.getJSONObject("base"))))
+                    if (result.optBoolean("conflict")) repository.dao.failed(op.operationId, "conflict", result.toString())
+                    else {
+                        check(result.optBoolean("ok")) { "O servidor não confirmou a alteração" }
+                        repository.dao.ack(op.operationId)
+                    }
+                } catch (e: Exception) {
+                    if (e is CancellationException) throw e
+                    // Preserve operation order within this list; keep other lists flowing.
+                    blockedLists.add(op.listId)
+                    uploadFailure = e
+                }
             }
             pull()
-            status.value = "Sincronizado"
-        } catch (e: Exception) { if (e is CancellationException) throw e; status.value = "Alterações salvas neste aparelho; aguardando conexão"; throw e }
+            uploadFailure?.let { throw it }
+            status.value = if (repository.dao.totalQueued() == 0) "Sincronizado" else "Há alterações pendentes; confira Conta e ajustes"
+        } catch (e: Exception) { if (e is CancellationException) throw e; status.value = "Não foi possível sincronizar: ${e.message ?: "verifique sua conexão"}"; throw e }
     }
     private suspend fun pull() {
         var offset = 0
@@ -92,15 +110,21 @@ class SyncEngine(private val context: Context, private val repository: ShoppingR
             for (i in 0 until rows.length()) {
                 val row = rows.getJSONObject(i); val id = row.getString("id"); accessible.add(id)
                 val d = row.getJSONObject("data")
-                if (repository.dao.queued(id) == 0) repository.dao.save(ShoppingList(id = id, name = d.getString("name"), description = d.optString("description"), market = d.optString("market"), budgetCents = d.optLong("budget_cents"), status = d.optString("status", "active"), createdAt = java.time.Instant.parse(row.getString("created_at")).toEpochMilli(), updatedAt = java.time.Instant.parse(row.getString("updated_at")).toEpochMilli(), shared = true, version = row.getLong("version"), deleted = d.optBoolean("deleted")))
+                repository.db.withTransaction {
+                    if (repository.dao.queued(id) == 0) repository.dao.save(ShoppingList(id = id, name = d.getString("name"), description = d.optString("description"), market = d.optString("market"), budgetCents = d.optLong("budget_cents"), status = d.optString("status", "active"), createdAt = java.time.Instant.parse(row.getString("created_at")).toEpochMilli(), updatedAt = java.time.Instant.parse(row.getString("updated_at")).toEpochMilli(), shared = true, version = row.getLong("version"), deleted = d.optBoolean("deleted")))
+                }
                 var itemOffset = 0
                 do {
                     val items = JSONArray(request("/rest/v1/shopping_items?list_id=eq.$id&select=*&order=id&limit=200&offset=$itemOffset", token = token()))
                     for (j in 0 until items.length()) {
                         val itemRow = items.getJSONObject(j); val itemId = itemRow.getString("id")
-                        if (repository.dao.queued(itemId) > 0) continue
-                        val item = itemRow.getJSONObject("data")
-                        repository.dao.save(ShoppingItem(id = itemId, listId = id, name = item.getString("name"), quantity = item.getString("quantity"), unit = item.optString("unit", "un"), estimatedCents = item.optLong("estimated_cents"), actualCents = if (item.isNull("actual_cents")) null else item.getLong("actual_cents"), category = item.optString("category", "Outros"), brand = item.optString("brand"), notes = item.optString("notes"), purchased = item.optBoolean("purchased"), purchasedBy = itemRow.optString("updated_by"), version = itemRow.getLong("version"), deleted = item.optBoolean("deleted")))
+                        repository.db.withTransaction {
+                            if (repository.dao.queued(itemId) == 0) {
+                                val item = itemRow.getJSONObject("data")
+                                val local = repository.dao.item(itemId)
+                                repository.dao.save(ShoppingItem(id = itemId, listId = id, name = item.getString("name"), quantity = item.getString("quantity"), unit = item.optString("unit", "un"), estimatedCents = item.optLong("estimated_cents"), actualCents = if (item.isNull("actual_cents")) null else item.getLong("actual_cents"), category = item.optString("category", "Outros"), brand = item.optString("brand"), notes = item.optString("notes"), purchased = item.optBoolean("purchased"), purchasedBy = itemRow.optString("updated_by"), version = itemRow.getLong("version"), deleted = item.optBoolean("deleted"), position = local?.position ?: 0, favorite = local?.favorite ?: false))
+                            }
+                        }
                     }
                     itemOffset += items.length()
                 } while (items.length() == 200)
@@ -108,10 +132,23 @@ class SyncEngine(private val context: Context, private val repository: ShoppingR
             offset += rows.length()
         } while (rows.length() == 100)
         // Cached lists are hidden when membership has been revoked on the server.
-        repository.dao.allLists().filter { it.shared && it.id !in accessible && repository.dao.queued(it.id) == 0 }.forEach { repository.dao.save(it.copy(deleted = true)) }
+        repository.db.withTransaction {
+            repository.dao.allLists().filter { it.shared && it.id !in accessible && repository.dao.queued(it.id) == 0 }.forEach { repository.dao.save(it.copy(deleted = true)) }
+        }
     }
     suspend fun invite(listId: String, role: String): String = JSONObject(rpc("create_invitation", JSONObject().put("target_list", listId).put("member_role", role))).getString("token")
-    suspend fun join(code: String) { rpc("accept_invitation", JSONObject().put("invitation_token", code.trim())); sync() }
+    suspend fun join(code: String) {
+        val received = code.trim()
+        // Also accept the complete invitation text pasted from a messaging app.
+        val invitation = Regex("(?i)(?<![a-z0-9])[a-f0-9]{64}(?![a-z0-9])").find(received)?.value
+            ?: throw IllegalArgumentException("Cole o código ou a mensagem do convite recebido")
+        val id = JSONObject(rpc("accept_invitation", JSONObject().put("invitation_token", invitation))).getString("list_id")
+        java.util.UUID.fromString(id)
+        // Acceptance must not be blocked by an unrelated local upload failure.
+        settings.selectList(id)
+        mutex.withLock { pull() }
+        require(repository.dao.list(id)?.let { it.shared && !it.deleted } == true) { "Lista aceita; aguarde a conexão para carregar os produtos" }
+    }
     suspend fun members(id: String) = JSONArray(request("/rest/v1/list_members?list_id=eq.$id&select=user_id,role", token = token()))
     suspend fun removeMember(id: String, userId: String) { rpc("remove_member", JSONObject().put("target_list", id).put("target_user", userId)) }
     suspend fun activity(id: String) = JSONArray(request("/rest/v1/shopping_activity?list_id=eq.$id&select=*&order=created_at.desc&limit=50", token = token()))
@@ -133,7 +170,7 @@ class SyncEngine(private val context: Context, private val repository: ShoppingR
         while (isActive) {
             try {
                 if (email.value.isBlank() || !configured()) { delay(5000); continue }
-                sync()
+                try { sync() } catch (e: Exception) { if (e is CancellationException) throw e }
                 val config = settings.get()
                 val access = token()
                 val closed = CompletableDeferred<Unit>()
@@ -144,6 +181,13 @@ class SyncEngine(private val context: Context, private val repository: ShoppingR
                     override fun onMessage(ws: WebSocket, text: String) {
                         val msg = runCatching { JSONObject(text) }.getOrNull() ?: return
                         if (msg.optString("event") == "postgres_changes") launch { runCatching { sync() } }
+                        if (msg.optString("event") == "phx_reply" && msg.optString("ref") == "1") {
+                            if (msg.optJSONObject("payload")?.optString("status") == "ok") {
+                                // Fetch changes made between the initial pull and subscription.
+                                launch { runCatching { sync() } }
+                            } else closed.complete(Unit)
+                        }
+                        if (msg.optString("event") in listOf("phx_error", "phx_close")) closed.complete(Unit)
                     }
                     override fun onFailure(ws: WebSocket, t: Throwable, response: Response?) { closed.complete(Unit) }
                     override fun onClosed(ws: WebSocket, code: Int, reason: String) { closed.complete(Unit) }
@@ -152,10 +196,11 @@ class SyncEngine(private val context: Context, private val repository: ShoppingR
                 // Refresh subscriptions periodically so JWT expiration and missed events recover.
                 withTimeoutOrNull(600_000) {
                     var ref = 2
+                    var polls = 0
                     while (!closed.isCompleted && isActive) {
-                        delay(25000)
-                        socket?.send(JSONObject().put("topic", "phoenix").put("event", "heartbeat").put("payload", JSONObject()).put("ref", "${ref++}").toString())
-                        sync()
+                        delay(5000)
+                        if (++polls % 5 == 0) socket?.send(JSONObject().put("topic", "phoenix").put("event", "heartbeat").put("payload", JSONObject()).put("ref", "${ref++}").toString())
+                        try { sync() } catch (e: Exception) { if (e is CancellationException) throw e }
                     }
                 }
             } catch (e: Exception) { if (e is CancellationException) throw e }

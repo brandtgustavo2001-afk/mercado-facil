@@ -53,6 +53,7 @@ import java.util.Date
 
 @Composable fun SettingsScreen(vm: MainViewModel, modifier: Modifier = Modifier) {
     val config by vm.settings.collectAsStateWithLifecycle()
+    val syncStatus by vm.app.sync.status.collectAsStateWithLifecycle()
     val email by vm.app.sync.email.collectAsStateWithLifecycle()
     val conflicts by vm.conflicts.collectAsStateWithLifecycle()
     val queued by vm.queue.collectAsStateWithLifecycle()
@@ -133,7 +134,8 @@ import java.util.Date
                 Text("Conta conectada", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.SemiBold)
                 Text(email, style = MaterialTheme.typography.bodyMedium)
-                Text(if (queued == 0) "Suas alterações estão salvas." else "$queued alterações aguardando envio.",
+                Text(syncStatus, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(if (queued == 0) "Nenhuma alteração aguardando envio." else "$queued alterações aguardando envio.",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Button(onClick = { vm.run { vm.app.sync.sync(); vm.message.value = "Sincronização concluída." } },
                     modifier = Modifier.fillMaxWidth()) { Text("Sincronizar agora") }

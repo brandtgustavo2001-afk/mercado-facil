@@ -5,6 +5,7 @@ import androidx.lifecycle.*
 import br.com.mercadofacil.MercadoApp
 import br.com.mercadofacil.database.*
 import kotlinx.coroutines.*
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.*
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
@@ -19,6 +20,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val conflicts = repository.dao.conflicts().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     val queue = repository.dao.queueSize().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
     val message = MutableStateFlow<String?>(null)
+    private val syncRequests = Channel<Unit>(Channel.CONFLATED)
+    init { viewModelScope.launch {
+        for (request in syncRequests) {
+            try { app.sync.sync() } catch (e: Exception) { if (e is CancellationException) throw e }
+        }
+    } }
     init { run {
         repository.initialize()
         val list = repository.ensureShoppingList(app.settings.selectedListId())
@@ -31,7 +38,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun save(item: ShoppingItem) = run { repository.save(item); scheduleSync() }
     fun requestSync() = scheduleSync()
     private fun scheduleSync() {
-        androidx.work.WorkManager.getInstance(app).enqueueUniqueWork("sync-now", androidx.work.ExistingWorkPolicy.APPEND_OR_REPLACE,
+        syncRequests.trySend(Unit)
+        androidx.work.WorkManager.getInstance(app).enqueueUniqueWork("sync-now", androidx.work.ExistingWorkPolicy.KEEP,
             androidx.work.OneTimeWorkRequestBuilder<br.com.mercadofacil.sync.SyncWorker>().setConstraints(androidx.work.Constraints.Builder().setRequiredNetworkType(androidx.work.NetworkType.CONNECTED).build()).build())
     }
 }

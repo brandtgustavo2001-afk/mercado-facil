@@ -37,8 +37,8 @@ Não execute a migração inicial novamente nesse projeto. Os passos abaixo são
 1. Crie um projeto Supabase e execute `supabase/migrations/001_initial.sql` no SQL Editor **em um projeto novo**.
 2. Habilite e-mail/senha em Auth e configure SMTP, confirmação de e-mail e a página de recuperação no painel Supabase. O aplicativo solicita o e-mail de recuperação; a troca de senha ocorre no fluxo web configurado no Supabase.
 3. Em Ajustes no app, informe a URL HTTPS e a chave pública `anon` ou `publishable`. **Nunca use `service_role`, senha de banco ou `sb_secret_`.**
-4. Cadastre/entre em uma conta. Abra uma lista e use Compartilhar → Ativar colaboração.
-5. Gere um convite e envie o código ao outro participante. No outro aparelho, entre na conta e cole o código em Compartilhar. O convite tem 256 bits, validade de 24 horas e um uso; no servidor só fica seu SHA-256.
+4. Cadastre/entre em uma conta. Abra a lista desejada e use menu → Compartilhar lista → Criar convite para esta lista. O aplicativo ativa a colaboração e envia os produtos existentes antes de gerar o convite.
+5. Envie o convite ao outro participante. No outro aparelho, entre na conta, abra Compartilhar lista, cole o código ou a mensagem em Convite recebido e toque em Abrir lista compartilhada. A lista recebida será aberta automaticamente. O convite tem 256 bits, validade de 24 horas e um uso; no servidor só fica seu SHA-256.
 6. Proprietários podem revogar convites e remover participantes; editores escrevem e visualizadores só leem. As RPCs validam as permissões independentemente do cliente.
 
 A UI lê apenas Room. Gravações locais e a fila são transacionais. RPCs usam UUID idempotente, lock por lista, comparação dos campos com os valores de base e auditoria no servidor. Alterações independentes mesclam; campos divergentes ficam em conflito e exigem escolha explícita em Ajustes. Exclusões são tombstones retidos indefinidamente nesta versão, evitando ressurreição por aparelhos antigos.
@@ -79,7 +79,7 @@ Para criar a primeira chave local e compilar um release:
 python tools/build_release.py
 ```
 
-A chave e as senhas ficam **fora do repositório**, em `~/.codex/secrets/mercado-facil`. Faça backup seguro dessa pasta; perder a chave impede atualizar instalações existentes. O script não imprime senhas e reutiliza a chave nas próximas execuções. O arquivo `tools/build_release.py` gera a versão 1.0.9 por padrão; use `--version` e `--code` para selecionar outra versão.
+A chave e as senhas ficam **fora do repositório**, em `~/.codex/secrets/mercado-facil`. Faça backup seguro dessa pasta; perder a chave impede atualizar instalações existentes. O script não imprime senhas e reutiliza a chave nas próximas execuções. O arquivo `tools/build_release.py` gera a versão 1.0.10 por padrão; use `--version` e `--code` para selecionar outra versão.
 
 Configure os quatro Secrets no GitHub → Settings → Secrets and variables → Actions:
 

@@ -34,7 +34,7 @@ class ShoppingRepository(val db: MercadoDatabase) {
         dao.save(next)
         val list = requireNotNull(dao.list(item.listId))
         dao.save(list.copy(updatedAt = next.updatedAt))
-        if (list.shared) dao.enqueue(SyncOperation(entityId = next.id, listId = next.listId, entityType = "item", payload = mutation(next.json(), before?.takeIf { it.version > 0 || dao.queued(it.id) > 0 }?.json()), baseVersion = next.version))
+        if (list.shared) dao.enqueue(SyncOperation(entityId = next.id, listId = next.listId, entityType = "item", payload = mutation(next.json(), before?.json()), baseVersion = next.version))
     }
     /** A checkout is atomic: only selected products move into its permanent snapshot. */
     suspend fun completePurchase(listId: String, purchasedAt: Long = System.currentTimeMillis()): PurchaseHistory? = db.withTransaction {
@@ -59,7 +59,7 @@ class ShoppingRepository(val db: MercadoDatabase) {
             dao.save(removed)
             if (list.shared) dao.enqueue(SyncOperation(
                 entityId = item.id, listId = listId, entityType = "item",
-                payload = mutation(removed.json(), item.takeIf { it.version > 0 || dao.queued(it.id) > 0 }?.json()),
+                payload = mutation(removed.json(), item.json()),
                 baseVersion = item.version
             ))
         }
@@ -77,7 +77,11 @@ class ShoppingRepository(val db: MercadoDatabase) {
     suspend fun share(list: ShoppingList) = db.withTransaction {
         require(!list.shared)
         save(list.copy(shared = true))
-        dao.allItems().filter { it.listId == list.id && !it.deleted }.forEach { save(it) }
+        // Existing local products are new remote entities when collaboration starts.
+        dao.allItems().filter { it.listId == list.id && !it.deleted }.forEach {
+            dao.enqueue(SyncOperation(entityId = it.id, listId = list.id, entityType = "item",
+                payload = mutation(it.json(), null), baseVersion = it.version))
+        }
     }
 }
 fun mutation(after: JSONObject, before: JSONObject?): String {

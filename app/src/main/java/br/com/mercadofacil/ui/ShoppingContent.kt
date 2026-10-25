@@ -89,6 +89,7 @@ import java.util.Locale
     onComplete: () -> Unit,
     onEdit: (ShoppingItem) -> Unit,
     onDelete: (ShoppingItem) -> Unit,
+    syncStatus: String? = null,
     loading: Boolean = false,
     adding: Boolean = false,
     paying: Boolean = false,
@@ -176,8 +177,11 @@ import java.util.Locale
                 Modifier.fillMaxSize().widthIn(max = 640.dp),
                 contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 14.dp, bottom = 28.dp)
             ) {
-                if (listName != "Minha lista") item("list-name") {
+                if (listName != "Minha lista" || syncStatus != null) item("list-name") {
                     Text(listName, style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(start = 2.dp, bottom = 14.dp))
+                    if (syncStatus != null) Text("Compartilhada · $syncStatus", style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(start = 2.dp, bottom = 14.dp))
                 }
