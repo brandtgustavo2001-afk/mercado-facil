@@ -33,7 +33,6 @@ import br.com.mercadofacil.viewmodel.MainViewModel
     val selected by vm.selectedList.collectAsStateWithLifecycle()
     val config by vm.settings.collectAsStateWithLifecycle()
     val message by vm.message.collectAsStateWithLifecycle()
-    val syncStatus by vm.app.sync.status.collectAsStateWithLifecycle()
     val current = lists.find { it.id == selected } ?: lists.firstOrNull { it.status == "active" }
     val currentProducts = products.filter { it.listId == current?.id }
     var draft by rememberSaveable { mutableStateOf("") }
@@ -69,8 +68,7 @@ import br.com.mercadofacil.viewmodel.MainViewModel
             topBar = { TopAppBar(title = { Text("Ajustes") }, navigationIcon = { IconButton(onClick = { advanced = false }) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Voltar à lista") } }) }
         ) { padding -> SettingsScreen(vm, Modifier.padding(padding)) }
         else ShoppingContent(
-            listName = current?.name ?: "Minha lista", products = currentProducts, purchases = purchases,
-            syncStatus = if (current?.shared == true) syncStatus else null,
+            products = currentProducts, purchases = purchases,
             selectedTab = tab, onTabChange = { tab = it }, draft = draft,
             onDraftChange = { draft = it; inputError = null },
             quantity = quantity, onQuantityChange = { quantity = it; quantityError = null },

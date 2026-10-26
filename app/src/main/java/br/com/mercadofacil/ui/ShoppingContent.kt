@@ -80,7 +80,6 @@ import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable fun ShoppingContent(
-    listName: String,
     products: List<ShoppingItem>,
     purchases: List<PurchaseHistory>,
     selectedTab: Int,
@@ -94,7 +93,6 @@ import java.util.Locale
     onComplete: () -> Unit,
     onEdit: (ShoppingItem) -> Unit,
     onDelete: (ShoppingItem) -> Unit,
-    syncStatus: String? = null,
     loading: Boolean = false,
     adding: Boolean = false,
     paying: Boolean = false,
@@ -191,14 +189,6 @@ import java.util.Locale
                 Modifier.fillMaxSize().widthIn(max = 640.dp),
                 contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 14.dp, bottom = 28.dp)
             ) {
-                if (listName != "Minha lista" || syncStatus != null) item("list-name") {
-                    Text(listName, style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(start = 2.dp, bottom = 14.dp))
-                    if (syncStatus != null) Text("Compartilhada · $syncStatus", style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(start = 2.dp, bottom = 14.dp))
-                }
                 if (pending.isNotEmpty() || selected.isEmpty()) item("pending-heading") { SectionTitle("Para comprar", pending.size) }
                 if (products.isEmpty()) item("empty") { EmptyState("Sua lista começa aqui", "Adicione o primeiro produto no campo abaixo.") }
                 items(pending, key = { it.id }) { product ->
