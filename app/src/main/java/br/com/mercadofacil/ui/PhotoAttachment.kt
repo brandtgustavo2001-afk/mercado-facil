@@ -10,6 +10,10 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.unit.dp
 import java.io.ByteArrayOutputStream
@@ -31,14 +35,28 @@ import java.io.ByteArrayOutputStream
         if (data.isNotEmpty()) TextButton(onClick = { viewing = true }) { Text("Ver foto") }
     }
     if (error != null) Text(error.orEmpty(), color = MaterialTheme.colorScheme.error)
-    if (viewing) AlertDialog(onDismissRequest = { viewing = false }, title = { Text("Foto do item") }, text = {
-        val bitmap = remember(data) { runCatching {
-            val bytes = Base64.decode(data, Base64.NO_WRAP)
-            BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-        }.getOrNull() }
-        if (bitmap != null) Image(bitmap.asImageBitmap(), "Foto de referência do produto", Modifier.fillMaxWidth().heightIn(max = 420.dp))
-        else Text("Não foi possível carregar a foto.")
-    }, confirmButton = { TextButton(onClick = { viewing = false }) { Text("Fechar") } }, dismissButton = {
-        if (change != null) TextButton(onClick = { change(""); viewing = false }) { Text("Remover foto") }
-    })
+    if (viewing) Dialog(
+        onDismissRequest = { viewing = false },
+        properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
+    ) {
+        Surface(Modifier.fillMaxSize(), color = Color.Black, contentColor = Color.White) {
+            Column(Modifier.fillMaxSize().systemBarsPadding()) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    if (change != null) TextButton(onClick = { change(""); viewing = false }) {
+                        Text("Remover foto", color = Color.White)
+                    }
+                    TextButton(onClick = { viewing = false }) { Text("Fechar", color = Color.White) }
+                }
+                val bitmap = remember(data) { runCatching {
+                    val bytes = Base64.decode(data, Base64.NO_WRAP)
+                    BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                }.getOrNull() }
+                if (bitmap != null) Image(
+                    bitmap.asImageBitmap(), "Foto de referência do produto",
+                    modifier = Modifier.fillMaxWidth().weight(1f),
+                    contentScale = ContentScale.Fit
+                ) else Text("Não foi possível carregar a foto.", Modifier.padding(24.dp))
+            }
+        }
+    }
 }
