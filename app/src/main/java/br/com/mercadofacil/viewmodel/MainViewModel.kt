@@ -20,10 +20,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val conflicts = repository.dao.conflicts().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     val queue = repository.dao.queueSize().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
     val message = MutableStateFlow<String?>(null)
+    val draftPhoto = MutableStateFlow("")
     private val syncRequests = Channel<Unit>(Channel.CONFLATED)
     init { viewModelScope.launch {
         for (request in syncRequests) {
             try { app.sync.sync() } catch (e: Exception) { if (e is CancellationException) throw e }
+        }
+    } }
+    init { viewModelScope.launch {
+        app.settings.flow.map { it.notifications }.distinctUntilChanged().collect {
+            br.com.mercadofacil.notifications.PushNotifications.schedule(app)
         }
     } }
     init { run {

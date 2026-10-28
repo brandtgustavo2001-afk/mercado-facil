@@ -56,6 +56,7 @@ class SyncEngine(
         if (value.optString("access_token").isBlank()) return feedback
         sessionStore.save(value.toString())
         this.email.value = normalizedEmail
+        br.com.mercadofacil.notifications.PushNotifications.schedule(context)
         return feedback
     }
     suspend fun recover(email: String) { request("/auth/v1/recover", JSONObject().put("email", email.trim())) }
@@ -69,6 +70,8 @@ class SyncEngine(
     }
     suspend fun logout() {
         require(repository.dao.totalQueued() == 0) { "Sincronize as alterações pendentes e resolva conflitos antes de sair" }
+        rpc("unregister_push", JSONObject().put("installation", br.com.mercadofacil.notifications.PushNotifications.installation(context)))
+        br.com.mercadofacil.notifications.PushNotifications.preferences(context).edit().remove("registered_email").apply()
         runCatching { request("/auth/v1/logout", JSONObject(), token()) }
         sessionStore.clear(); email.value = ""; socket?.close(1000, "logout"); status.value = "Somente neste aparelho"
         repository.dao.allLists().filter { it.shared }.forEach { repository.dao.save(it.copy(deleted = true)) }
@@ -116,6 +119,7 @@ class SyncEngine(
     private suspend fun notifySharedChanges(before: Map<String, ShoppingItem>, oldPurchases: Set<String>) {
         val account = JSONObject(sessionStore.read() ?: return).optJSONObject("user")?.optString("id").orEmpty()
         if (account.isEmpty()) return
+        if (br.com.mercadofacil.notifications.PushNotifications.preferences(context).getString("registered_email", "") == email.value) return
         val prefs = context.getSharedPreferences("change-notifications", Context.MODE_PRIVATE)
         val enabled = settings.get().notifications
         val items = repository.dao.allItems()
@@ -165,39 +169,19 @@ class SyncEngine(
         }
     }
     private suspend fun syncPhotos() {
+        val photos = R2Photos(context, repository, client)
         val shared = repository.dao.allLists().filter { it.shared && !it.deleted }.map { it.id }.toSet()
         for (item in repository.dao.allItems().filter { it.listId in shared && it.photoDirty && !it.deleted }) {
-            if (repository.dao.queued(item.id) > 0) continue
-            val config = settings.get()
-            val body = JSONObject().put("item_id", item.id).put("list_id", item.listId)
-                .put("photo_data", item.photoData).put("updated_at", java.time.Instant.now().toString())
-            withContext(Dispatchers.IO) {
-                val req = Request.Builder().url("${config.supabaseUrl}/rest/v1/item_photos?on_conflict=item_id")
-                    .header("apikey", config.supabaseKey).header("Authorization", "Bearer ${token()}")
-                    .header("Prefer", "resolution=merge-duplicates")
-                    .post(body.toString().toRequestBody("application/json".toMediaType())).build()
-                client.newCall(req).execute().use { check(it.isSuccessful) { "Não foi possível enviar a foto. Ela será tentada novamente." } }
-            }
-            repository.db.withTransaction {
-                repository.dao.item(item.id)?.let { current ->
-                    if (current.photoData == item.photoData) repository.dao.save(current.copy(photoDirty = false))
-                }
-            }
+            if (repository.dao.queued(item.id) == 0) photos.upload(item, token())
         }
         for (listId in shared) {
+            val canEdit = rpc("member_role", JSONObject().put("target_list", listId)).trim().trim('"') in listOf("owner", "editor")
             var offset = 0
             do {
-                val rows = JSONArray(request("/rest/v1/item_photos?list_id=eq.$listId&select=item_id,photo_data&order=item_id&limit=50&offset=$offset", token = token()))
-                for (i in 0 until rows.length()) {
-                    val row = rows.getJSONObject(i)
-                    repository.db.withTransaction {
-                        repository.dao.item(row.getString("item_id"))?.let { local ->
-                            if (!local.photoDirty) repository.dao.save(local.copy(photoData = row.getString("photo_data")))
-                        }
-                    }
-                }
+                val rows = JSONArray(request("/rest/v1/item_photos?list_id=eq.$listId&select=item_id,object_key,content_hash,legacy_present,updated_at&order=item_id&limit=100&offset=$offset", token = token()))
+                photos.receive(rows, token(), canEdit)
                 offset += rows.length()
-            } while (rows.length() == 50)
+            } while (rows.length() == 100)
         }
     }
     private suspend fun pull() {

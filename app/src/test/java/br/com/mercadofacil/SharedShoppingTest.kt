@@ -214,6 +214,20 @@ class SharedShoppingTest {
             if (offline) throw java.io.IOException("Offline")
             val request = chain.request()
             val path = request.url.encodedPath
+            if (path.startsWith("/photos/")) {
+                val parts = path.split("/"); val listId = parts[2]; val itemId = parts[3]
+                if (request.method == "PUT" || request.method == "DELETE") {
+                    val buffer = okio.Buffer(); request.body?.writeTo(buffer)
+                    val bytes = buffer.readByteArray()
+                    val hash = if (bytes.isEmpty()) "" else java.security.MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
+                    photos[itemId] = JSONObject().put("item_id", itemId).put("list_id", listId)
+                        .put("photo_data", java.util.Base64.getEncoder().encodeToString(bytes)).put("legacy_present", false)
+                        .put("object_key", if (bytes.isEmpty()) "" else "$listId/$itemId/$hash.jpg").put("content_hash", hash)
+                    return Response.Builder().request(request).protocol(Protocol.HTTP_1_1).code(200).message("Test").body("{}".toResponseBody("application/json".toMediaType())).build()
+                }
+                val bytes = java.util.Base64.getDecoder().decode(photos[itemId]?.optString("photo_data").orEmpty())
+                return Response.Builder().request(request).protocol(Protocol.HTTP_1_1).code(if (bytes.isEmpty()) 204 else 200).message("Test").body(bytes.toResponseBody("image/jpeg".toMediaType())).build()
+            }
             var code = 200
             val body = when {
                 path.endsWith("/apply_operation") -> {

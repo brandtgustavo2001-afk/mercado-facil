@@ -35,7 +35,7 @@ import br.com.mercadofacil.viewmodel.MainViewModel
     val message by vm.message.collectAsStateWithLifecycle()
     val current = lists.find { it.id == selected } ?: lists.firstOrNull { it.status == "active" }
     val currentProducts = products.filter { it.listId == current?.id }
-    var draftPhoto by rememberSaveable { mutableStateOf("") }
+    val draftPhoto by vm.draftPhoto.collectAsStateWithLifecycle()
     var draft by rememberSaveable { mutableStateOf("") }
     var quantity by rememberSaveable { mutableStateOf("1") }
     var inputError by remember { mutableStateOf<String?>(null) }
@@ -60,7 +60,7 @@ import br.com.mercadofacil.viewmodel.MainViewModel
     LaunchedEffect(vm, lifecycleOwner) {
         lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) { vm.app.sync.watch() }
     }
-    LaunchedEffect(selected) { tab = 0; draft = ""; draftPhoto = ""; quantity = "1"; inputError = null; quantityError = null }
+    LaunchedEffect(selected) { tab = 0; draft = ""; vm.draftPhoto.value = ""; quantity = "1"; inputError = null; quantityError = null }
     BackHandler(advanced) { advanced = false }
     ShoppingTheme(dark) {
         UpdatePrompt(vm, checkUpdates)
@@ -70,7 +70,7 @@ import br.com.mercadofacil.viewmodel.MainViewModel
         ) { padding -> SettingsScreen(vm, Modifier.padding(padding)) }
         else ShoppingContent(
             products = currentProducts, purchases = purchases.filter { it.listId == current?.id }.take(10),
-            photoData = draftPhoto, onPhotoChange = { draftPhoto = it },
+            photoData = draftPhoto, onPhotoChange = { vm.draftPhoto.value = it },
             selectedTab = tab, onTabChange = { tab = it }, draft = draft,
             onDraftChange = { draft = it; inputError = null },
             quantity = quantity, onQuantityChange = { quantity = it; quantityError = null },
@@ -89,7 +89,7 @@ import br.com.mercadofacil.viewmodel.MainViewModel
                                 vm.repository.save(item)
                                 if (list.status != "active") vm.save(list.copy(status = "active"))
                                 draft = ""
-                                draftPhoto = ""
+                                vm.draftPhoto.value = ""
                                 quantity = "1"
                                 vm.requestSync()
                             } finally { adding = false }

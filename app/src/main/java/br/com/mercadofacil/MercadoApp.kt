@@ -20,6 +20,7 @@ class MercadoApp : Application() {
     val sync by lazy { SyncEngine(this, repository, settings) }
     override fun onCreate() {
         super.onCreate()
+        br.com.mercadofacil.notifications.PushNotifications.initialize(this)
         val connected = Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
         WorkManager.getInstance(this).enqueueUniquePeriodicWork("updates", ExistingPeriodicWorkPolicy.KEEP, PeriodicWorkRequestBuilder<UpdateWorker>(12, TimeUnit.HOURS).setConstraints(connected).build())
         WorkManager.getInstance(this).enqueueUniquePeriodicWork("sync", ExistingPeriodicWorkPolicy.KEEP, PeriodicWorkRequestBuilder<SyncWorker>(15, TimeUnit.MINUTES).setConstraints(connected).build())

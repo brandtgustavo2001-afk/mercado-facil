@@ -1,0 +1,9 @@
+{
+  "name": "mercado-facil-api",
+  "main": "worker.mjs",
+  "compatibility_date": "2026-10-28",
+  "account_id": "c76785cfc7b17e3afc1e7fbf3bda51d7",
+  "workers_dev": true,
+  "r2_buckets": [{"binding": "PHOTOS", "bucket_name": "mercado-facil-fotos"}],
+  "observability": {"enabled": false}
+}
