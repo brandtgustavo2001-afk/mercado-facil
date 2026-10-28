@@ -28,6 +28,7 @@ import br.com.mercadofacil.BuildConfig
 import br.com.mercadofacil.database.*
 import br.com.mercadofacil.domain.Money
 import br.com.mercadofacil.domain.parseSpokenShoppingItems
+import br.com.mercadofacil.domain.quickShoppingItemFromInput
 import br.com.mercadofacil.domain.quickShoppingItem
 import br.com.mercadofacil.viewmodel.MainViewModel
 
@@ -95,7 +96,7 @@ import br.com.mercadofacil.viewmodel.MainViewModel
                 if (name.length > 200) inputError = "Use até 200 caracteres para o produto."
                 else if (list != null && name.isNotEmpty() && !adding) {
                     val position = (currentProducts.maxOfOrNull { it.position } ?: -1) + 1
-                    val item = runCatching { quickShoppingItem(list.id, name, quantity, position).copy(photoData = draftPhoto) }
+                    val item = runCatching { quickShoppingItemFromInput(list.id, name, quantity, position).copy(photoData = draftPhoto) }
                         .onFailure { quantityError = it.message ?: "Quantidade inválida." }.getOrNull()
                     if (item != null) {
                         adding = true
