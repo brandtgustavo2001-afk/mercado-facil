@@ -57,6 +57,36 @@ class RoomPersistenceTest {
             assertEquals(1, repo.dao.allItems().size)
         } finally { db.close() }
     }
+    @Test fun spokenBatchIsAtomicAndQueuesEverySharedItem() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val db = Room.inMemoryDatabaseBuilder(context, MercadoDatabase::class.java).build()
+        try {
+            val repo = ShoppingRepository(db)
+            val list = ShoppingList(name = "Família", shared = true)
+            repo.save(list)
+            val items = listOf(
+                ShoppingItem(listId = list.id, name = "Leites", quantity = "2", position = 0),
+                ShoppingItem(listId = list.id, name = "Arroz", quantity = "1", position = 1),
+                ShoppingItem(listId = list.id, name = "Refrigerantes", quantity = "3", position = 2)
+            )
+
+            repo.saveAll(items)
+
+            assertEquals(items.map { it.name }, repo.dao.allItems().map { it.name })
+            assertEquals(listOf("list", "item", "item", "item"), repo.dao.pending().map { it.entityType })
+            assertEquals(items.map { it.id }, repo.dao.pending().filter { it.entityType == "item" }.map { it.entityId })
+
+            try {
+                repo.saveAll(listOf(
+                    ShoppingItem(listId = list.id, name = "Manteiga"),
+                    ShoppingItem(listId = list.id, name = "", quantity = "1")
+                ))
+                fail("Invalid batch must fail as a whole")
+            } catch (_: IllegalArgumentException) { }
+            assertEquals(items.size, repo.dao.allItems().size)
+            assertEquals(items.size + 1, repo.dao.pending().size)
+        } finally { db.close() }
+    }
     @Test fun malformedBackupRollsBackAllImportedRecords() = runBlocking {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val db = Room.inMemoryDatabaseBuilder(context, MercadoDatabase::class.java).build()

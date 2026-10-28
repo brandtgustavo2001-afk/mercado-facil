@@ -1,7 +1,12 @@
 package br.com.mercadofacil.ui
 
+import android.app.Activity
+import android.content.ActivityNotFoundException
 import android.content.Intent
+import android.speech.RecognizerIntent
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -22,6 +27,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import br.com.mercadofacil.BuildConfig
 import br.com.mercadofacil.database.*
 import br.com.mercadofacil.domain.Money
+import br.com.mercadofacil.domain.parseSpokenShoppingItems
 import br.com.mercadofacil.domain.quickShoppingItem
 import br.com.mercadofacil.viewmodel.MainViewModel
 
@@ -40,6 +46,7 @@ import br.com.mercadofacil.viewmodel.MainViewModel
     var quantity by rememberSaveable { mutableStateOf("1") }
     var inputError by remember { mutableStateOf<String?>(null) }
     var quantityError by remember { mutableStateOf<String?>(null) }
+    var voiceTranscript by rememberSaveable { mutableStateOf<String?>(null) }
     var adding by remember { mutableStateOf(false) }
     var paying by remember { mutableStateOf(false) }
     var tab by rememberSaveable { mutableIntStateOf(0) }
@@ -54,13 +61,21 @@ import br.com.mercadofacil.viewmodel.MainViewModel
     var checkUpdates by remember { mutableIntStateOf(0) }
     val snackbar = remember { SnackbarHostState() }
     val context = LocalContext.current
+    val voiceLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val transcript = result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
+                ?.firstOrNull { it.isNotBlank() }
+            if (transcript.isNullOrBlank()) vm.message.value = "Não consegui entender. Tente falar novamente."
+            else voiceTranscript = transcript
+        }
+    }
     val lifecycleOwner = LocalLifecycleOwner.current
     val dark = config.theme == "dark" || config.theme == "auto" && isSystemInDarkTheme()
     LaunchedEffect(message) { message?.let { snackbar.showSnackbar(it); vm.message.value = null } }
     LaunchedEffect(vm, lifecycleOwner) {
         lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) { vm.app.sync.watch() }
     }
-    LaunchedEffect(selected) { tab = 0; draft = ""; vm.draftPhoto.value = ""; quantity = "1"; inputError = null; quantityError = null }
+    LaunchedEffect(selected) { tab = 0; draft = ""; vm.draftPhoto.value = ""; quantity = "1"; inputError = null; quantityError = null; voiceTranscript = null }
     BackHandler(advanced) { advanced = false }
     ShoppingTheme(dark) {
         UpdatePrompt(vm, checkUpdates)
@@ -97,6 +112,19 @@ import br.com.mercadofacil.viewmodel.MainViewModel
                     }
                 }
             },
+            onVoiceAdd = {
+                try {
+                    voiceLauncher.launch(Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                        putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                        putExtra(RecognizerIntent.EXTRA_LANGUAGE, "pt-BR")
+                        putExtra(RecognizerIntent.EXTRA_PROMPT, "Exemplo: 2 leites, 1 arroz e 3 refrigerantes")
+                    })
+                } catch (e: ActivityNotFoundException) {
+                    vm.message.value = "Reconhecimento de voz indisponível neste celular."
+                } catch (e: SecurityException) {
+                    vm.message.value = "O reconhecimento de voz não está autorizado neste celular."
+                }
+            },
             onToggle = { vm.save(it.copy(purchased = !it.purchased)) },
             onComplete = {
                 val list = current
@@ -127,6 +155,60 @@ import br.com.mercadofacil.viewmodel.MainViewModel
                 }
             }
         )
+        voiceTranscript?.let { original ->
+            val recognizedItems = remember(original) { parseSpokenShoppingItems(original) }
+            AlertDialog(
+                onDismissRequest = { if (!adding) voiceTranscript = null },
+                title = { Text("Adicionar por voz") },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text("Confira o que foi entendido. Você pode corrigir o texto antes de adicionar.")
+                        OutlinedTextField(
+                            value = original,
+                            onValueChange = { voiceTranscript = it.take(1500) },
+                            label = { Text("Produtos falados") },
+                            modifier = Modifier.fillMaxWidth(),
+                            minLines = 2, maxLines = 4,
+                            enabled = !adding
+                        )
+                        if (recognizedItems.isEmpty()) {
+                            Text("Não identifiquei produtos válidos. Tente falar as quantidades e os nomes novamente.", color = MaterialTheme.colorScheme.error)
+                        } else {
+                            Column(Modifier.heightIn(max = 220.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                recognizedItems.forEach { item ->
+                                    Text("${item.quantity.replace('.', ',')} × ${item.name}")
+                                }
+                            }
+                        }
+                    }
+                },
+                confirmButton = {
+                    TextButton(
+                        enabled = !adding && recognizedItems.isNotEmpty() && current != null,
+                        onClick = {
+                            val list = current ?: return@TextButton
+                            val items = recognizedItems.mapIndexed { index, item ->
+                                quickShoppingItem(
+                                    list.id, item.name, item.quantity,
+                                    (currentProducts.maxOfOrNull { it.position } ?: -1) + 1 + index
+                                )
+                            }
+                            adding = true
+                            vm.run {
+                                try {
+                                    vm.repository.saveAll(items)
+                                    if (list.status != "active") vm.repository.save(list.copy(status = "active"))
+                                    vm.requestSync()
+                                    voiceTranscript = null
+                                    vm.message.value = "${items.size} produto(s) adicionado(s) à lista."
+                                } finally { adding = false }
+                            }
+                        }
+                    ) { Text(if (adding) "Adicionando..." else "Adicionar ${recognizedItems.size}") }
+                },
+                dismissButton = { TextButton(enabled = !adding, onClick = { voiceTranscript = null }) { Text("Cancelar") } }
+            )
+        }
         if (preferences) AlertDialog(onDismissRequest = { preferences = false }, title = { Text("Configurações") }, text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Choice("Tema", when (config.theme) { "light" -> "Claro"; "dark" -> "Escuro"; else -> "Automático" }, listOf("Automático", "Claro", "Escuro")) { choice ->

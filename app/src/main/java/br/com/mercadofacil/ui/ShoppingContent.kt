@@ -91,6 +91,7 @@ import java.util.Locale
     quantity: String,
     onQuantityChange: (String) -> Unit,
     onAdd: () -> Unit,
+    onVoiceAdd: () -> Unit,
     onToggle: (ShoppingItem) -> Unit,
     onComplete: () -> Unit,
     onEdit: (ShoppingItem) -> Unit,
@@ -164,6 +165,11 @@ import java.util.Locale
                             modifier = Modifier.weight(1f), shape = RoundedCornerShape(15.dp),
                             singleLine = true, enabled = !loading && !adding,
                             isError = error != null,
+                            trailingIcon = {
+                                IconButton(onClick = onVoiceAdd, enabled = !loading && !adding) {
+                                    Icon(Icons.Outlined.Mic, contentDescription = "Adicionar produtos por voz")
+                                }
+                            },
                             keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences, imeAction = ImeAction.Done),
                             keyboardActions = KeyboardActions(onDone = { if (draft.isNotBlank() && !adding && !loading) onAdd() })
                         )

@@ -37,6 +37,10 @@ class ShoppingRepository(val db: MercadoDatabase) {
         dao.save(list.copy(updatedAt = next.updatedAt))
         if (list.shared) dao.enqueue(SyncOperation(entityId = next.id, listId = next.listId, entityType = "item", payload = mutation(next.json(), before?.json()), baseVersion = next.version))
     }
+    /** Adds all recognized products or none, including their pending shared-list operations. */
+    suspend fun saveAll(items: List<ShoppingItem>) = db.withTransaction {
+        items.forEach { save(it) }
+    }
     /** A checkout is atomic: only selected products move into its permanent snapshot. */
     suspend fun completePurchase(listId: String, purchasedAt: Long = System.currentTimeMillis()): PurchaseHistory? = db.withTransaction {
         val list = requireNotNull(dao.list(listId)) { "Lista não encontrada" }
