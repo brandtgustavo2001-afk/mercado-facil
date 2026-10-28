@@ -47,6 +47,17 @@ async function photo(request, env, match) {
     const bytes = Uint8Array.from(atob(row.photo_data), c=>c.charCodeAt(0));
     return new Response(bytes,{headers:{'Content-Type':'image/jpeg','Cache-Control':'private, no-store'}});
   }
+  if (request.method === 'DELETE') {
+    const rows = await db(`/rest/v1/item_photos?item_id=eq.${itemId}&list_id=eq.${listId}&select=object_key`, auth);
+    const oldKey = rows[0]?.object_key || '';
+    if (oldKey) {
+      if (!oldKey.startsWith(`${listId}/${itemId}/`)) throw new Error('key');
+      // Delete first so a failed metadata update can safely retry this idempotent operation.
+      await env.PHOTOS.delete(oldKey);
+    }
+    await db('/rest/v1/rpc/set_r2_photo',auth,{target_list:listId,target_item:itemId,object_path:'',content_hash:''});
+    return json({ok:true,hash:''});
+  }
   let bytes = new Uint8Array();
   if (request.method === 'PUT') {
     if (request.headers.get('Content-Type')?.split(';')[0] !== 'image/jpeg') return new Response('Use JPEG',{status:415});

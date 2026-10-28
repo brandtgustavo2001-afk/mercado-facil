@@ -171,7 +171,7 @@ class SyncEngine(
     private suspend fun syncPhotos() {
         val photos = R2Photos(context, repository, client)
         val shared = repository.dao.allLists().filter { it.shared && !it.deleted }.map { it.id }.toSet()
-        for (item in repository.dao.allItems().filter { it.listId in shared && it.photoDirty && !it.deleted }) {
+        for (item in repository.dao.allItems().filter { it.listId in shared && it.photoDirty }) {
             if (repository.dao.queued(item.id) == 0) photos.upload(item, token())
         }
         for (listId in shared) {

@@ -4,7 +4,8 @@ Este projeto é uma primeira implementação funcional, **não a conclusão inte
 
 ## Verificado no ambiente local
 
-- Candidata 1.0.18: fotos privadas no Cloudflare R2, sincronização de compras e push FCM. O Worker responde r2=true e push=true; OAuth FCM validado por dry-run com token fictício (sem notificação enviada). 57 testes Android, lint e 7 testes do Worker passaram. APK compilado, ainda não publicado nem instalado para validação em aparelho.
+- A versão 1.0.19 limpa a foto local ao confirmar uma compra e marca a remoção remota para o R2 na fila compartilhada. A implantação do Worker e a publicação do APK dependem da conclusão desta atualização; não houve teste físico em dois aparelhos.
+- A versão 1.0.18 publicou fotos privadas no Cloudflare R2, sincronização de compras e push FCM. O Worker respondeu r2=true e push=true; OAuth FCM foi validado por dry-run com token fictício (sem notificação enviada). Não houve validação física em aparelho.
 - Versão 1.0.14 adiciona fotos de referência, cache offline, migração Room 2→3, backup e sincronização de imagens em tabela separada com RLS. Configuração aplicada ao Supabase. 56 testes e lint aprovados, incluindo foto entre duas bases simuladas. Câmera usa preview do Android; resolução limitada. Validação física entre celulares pendente.
 
 - Versão 1.0.13 oculta o nome da lista e o texto de sincronização acima dos produtos, conforme o destaque enviado. A lista, o compartilhamento e a sincronização continuam ativos. Compilação debug aprovada.

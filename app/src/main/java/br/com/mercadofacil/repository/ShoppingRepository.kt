@@ -60,7 +60,8 @@ class ShoppingRepository(val db: MercadoDatabase) {
                 .put("created_at", purchase.createdAt).put("items", JSONArray(purchase.itemsJson))
                 .put("total_cents", purchase.totalCents).put("item_count", purchase.itemCount).toString(), baseVersion = 0))
         selected.forEach { item ->
-            val removed = item.copy(deleted = true, updatedAt = purchasedAt)
+            // Drop the local image immediately and queue a remote R2 deletion for shared items.
+            val removed = item.copy(deleted = true, photoData = "", photoDirty = list.shared, updatedAt = purchasedAt)
             dao.save(removed)
             if (list.shared) dao.enqueue(SyncOperation(
                 entityId = item.id, listId = listId, entityType = "item",
