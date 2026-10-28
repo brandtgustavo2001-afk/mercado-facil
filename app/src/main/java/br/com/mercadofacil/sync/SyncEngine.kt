@@ -76,6 +76,8 @@ class SyncEngine(
     suspend fun rpc(name: String, body: JSONObject = JSONObject()): String = request("/rest/v1/rpc/$name", body, token())
     suspend fun sync() = mutex.withLock {
         if (!configured() || email.value.isBlank()) return@withLock
+        val beforeItems = repository.dao.allItems().associateBy { it.id }
+        val beforePurchases = repository.dao.purchases().first().map { it.id }.toSet()
         status.value = "Sincronizando…"
         try {
             var uploadFailure: Exception? = null
@@ -106,9 +108,34 @@ class SyncEngine(
             pull()
             syncPurchases()
             syncPhotos()
+            notifySharedChanges(beforeItems, beforePurchases)
             uploadFailure?.let { throw it }
             status.value = if (repository.dao.totalQueued() == 0) "Sincronizado" else "Há alterações pendentes; confira Conta e ajustes"
         } catch (e: Exception) { if (e is CancellationException) throw e; status.value = "Não foi possível sincronizar: ${e.message ?: "verifique sua conexão"}"; throw e }
+    }
+    private suspend fun notifySharedChanges(before: Map<String, ShoppingItem>, oldPurchases: Set<String>) {
+        val account = JSONObject(sessionStore.read() ?: return).optJSONObject("user")?.optString("id").orEmpty()
+        if (account.isEmpty()) return
+        val prefs = context.getSharedPreferences("change-notifications", Context.MODE_PRIVATE)
+        val enabled = settings.get().notifications
+        val items = repository.dao.allItems()
+        val purchases = repository.dao.purchases().first()
+        for (list in repository.dao.allLists().filter { it.shared && !it.deleted }) {
+            val key = "$account:${list.id}"
+            if (prefs.getBoolean(key, false) && enabled) {
+                val added = items.filter { it.listId == list.id && !it.deleted && it.id !in before && it.purchasedBy != account }
+                val bought = purchases.filter { it.listId == list.id && it.id !in oldPurchases }
+                if (added.isNotEmpty()) br.com.mercadofacil.updater.notifyUser(context,
+                    "Novos itens em ${list.name}", added.take(4).joinToString(", ") { it.name }, (key + "items").hashCode())
+                if (bought.isNotEmpty()) br.com.mercadofacil.updater.notifyUser(context,
+                    "Compra concluída em ${list.name}", "${bought.sumOf { it.itemCount }} itens comprados. Toque para ver o histórico.", (key + "purchases").hashCode())
+                val changed = items.count { item -> item.listId == list.id && !item.deleted && item.purchasedBy != account &&
+                    before[item.id]?.let { old -> !old.deleted && (old.name != item.name || old.quantity != item.quantity || old.purchased != item.purchased) } == true }
+                if (changed > 0 && added.isEmpty() && bought.isEmpty()) br.com.mercadofacil.updater.notifyUser(context,
+                    "Lista ${list.name} atualizada", "$changed itens foram alterados por outro participante.", (key + "changes").hashCode())
+            }
+            prefs.edit().putBoolean(key, true).apply()
+        }
     }
     private suspend fun syncPurchases() {
         for (list in repository.dao.allLists().filter { it.shared && !it.deleted }) {
