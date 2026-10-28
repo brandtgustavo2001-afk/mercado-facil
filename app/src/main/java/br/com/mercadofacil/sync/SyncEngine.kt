@@ -9,6 +9,7 @@ import br.com.mercadofacil.database.*
 import br.com.mercadofacil.repository.*
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import okhttp3.*
@@ -83,6 +84,11 @@ class SyncEngine(
                 if (op.listId in blockedLists) continue
                 if (repository.dao.conflicting(op.entityId) > 0) continue
                 try {
+                    if (op.entityType == "purchase") {
+                        rpc("save_purchase", JSONObject().put("purchase", JSONObject(op.payload)))
+                        repository.dao.ack(op.operationId)
+                        continue
+                    }
                     val payload = JSONObject(op.payload)
                     val result = JSONObject(rpc("apply_operation", JSONObject().put("op_id", op.operationId).put("entity", op.entityType).put("entity_id", op.entityId).put("target_list", op.listId).put("patch", payload.getJSONObject("data")).put("base", payload.getJSONObject("base"))))
                     if (result.optBoolean("conflict")) repository.dao.failed(op.operationId, "conflict", result.toString())
@@ -98,10 +104,38 @@ class SyncEngine(
                 }
             }
             pull()
+            syncPurchases()
             syncPhotos()
             uploadFailure?.let { throw it }
             status.value = if (repository.dao.totalQueued() == 0) "Sincronizado" else "Há alterações pendentes; confira Conta e ajustes"
         } catch (e: Exception) { if (e is CancellationException) throw e; status.value = "Não foi possível sincronizar: ${e.message ?: "verifique sua conexão"}"; throw e }
+    }
+    private suspend fun syncPurchases() {
+        for (list in repository.dao.allLists().filter { it.shared && !it.deleted }) {
+            val migration = context.getSharedPreferences("shared-purchase-migration", Context.MODE_PRIVATE)
+            if (!migration.getBoolean(list.id, false)) {
+                val role = rpc("member_role", JSONObject().put("target_list", list.id)).trim().trim('"')
+                if (role == "owner" || role == "editor") {
+                    for (purchase in repository.dao.purchases().first().filter { it.listId == list.id }) {
+                        rpc("save_purchase", JSONObject().put("purchase", JSONObject().put("id", purchase.id)
+                            .put("list_id", list.id).put("list_name", purchase.listName).put("created_at", purchase.createdAt)
+                            .put("items", JSONArray(purchase.itemsJson)).put("total_cents", purchase.totalCents).put("item_count", purchase.itemCount)))
+                    }
+                }
+                migration.edit().putBoolean(list.id, true).apply()
+            }
+            val rows = JSONArray(request("/rest/v1/shared_purchases?list_id=eq.${list.id}&select=*&order=created_at.desc,id.desc&limit=10", token = token()))
+            repository.db.withTransaction {
+                val ids = mutableListOf<String>()
+                for (i in 0 until rows.length()) {
+                    val row = rows.getJSONObject(i); val id = row.getString("id"); ids.add(id)
+                    repository.dao.save(PurchaseHistory(id, list.id, row.getString("list_name"), row.getLong("created_at"),
+                        row.getJSONArray("items").toString(), row.getLong("total_cents"), row.getInt("item_count")))
+                }
+                ids.addAll(repository.dao.pending().filter { it.entityType == "purchase" && it.listId == list.id }.map { it.entityId })
+                repository.dao.reconcilePurchases(list.id, ids)
+            }
+        }
     }
     private suspend fun syncPhotos() {
         val shared = repository.dao.allLists().filter { it.shared && !it.deleted }.map { it.id }.toSet()

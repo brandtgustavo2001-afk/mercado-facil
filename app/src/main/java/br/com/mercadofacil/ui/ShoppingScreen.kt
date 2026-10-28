@@ -69,7 +69,7 @@ import br.com.mercadofacil.viewmodel.MainViewModel
             topBar = { TopAppBar(title = { Text("Ajustes") }, navigationIcon = { IconButton(onClick = { advanced = false }) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Voltar à lista") } }) }
         ) { padding -> SettingsScreen(vm, Modifier.padding(padding)) }
         else ShoppingContent(
-            products = currentProducts, purchases = purchases,
+            products = currentProducts, purchases = purchases.filter { it.listId == current?.id }.take(10),
             photoData = draftPhoto, onPhotoChange = { draftPhoto = it },
             selectedTab = tab, onTabChange = { tab = it }, draft = draft,
             onDraftChange = { draft = it; inputError = null },

@@ -55,6 +55,10 @@ class ShoppingRepository(val db: MercadoDatabase) {
             totalCents = selected.sumOf { Money.line(it.quantity, it.actualCents ?: it.estimatedCents) }
         )
         dao.save(purchase)
+        if (list.shared) dao.enqueue(SyncOperation(entityId = purchase.id, listId = listId, entityType = "purchase",
+            payload = JSONObject().put("id", purchase.id).put("list_id", listId).put("list_name", purchase.listName)
+                .put("created_at", purchase.createdAt).put("items", JSONArray(purchase.itemsJson))
+                .put("total_cents", purchase.totalCents).put("item_count", purchase.itemCount).toString(), baseVersion = 0))
         selected.forEach { item ->
             val removed = item.copy(deleted = true, updatedAt = purchasedAt)
             dao.save(removed)

@@ -9,6 +9,7 @@ import br.com.mercadofacil.repository.ShoppingRepository
 import br.com.mercadofacil.domain.quickShoppingItem
 import br.com.mercadofacil.sync.*
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.flow.first
 import okhttp3.*
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.ResponseBody.Companion.toResponseBody
@@ -80,6 +81,7 @@ class SharedShoppingTest {
             assertTrue(first.dao.item(nescau.id)!!.purchased)
             first.completePurchase(list.id); owner.sync(); guest.sync()
             assertTrue(second.dao.item(nescau.id)!!.deleted)
+            assertEquals("Nescau", JSONArray(second.dao.purchases().first().single().itemsJson).getJSONObject(0).getString("name"))
             assertFalse(second.dao.allItems().first { it.name == "Arroz" }.deleted)
         } finally { firstDb.close(); secondDb.close() }
     }
@@ -202,6 +204,7 @@ class SharedShoppingTest {
     private inner class Server : Interceptor {
         val lists = linkedMapOf<String, JSONObject>()
         val items = linkedMapOf<String, JSONObject>()
+        val purchases = linkedMapOf<String, JSONObject>()
         val photos = linkedMapOf<String, JSONObject>()
         var invitedList = ""
         var deniedList = ""
@@ -230,6 +233,14 @@ class SharedShoppingTest {
                         "{\"ok\":true}"
                     }
                 }
+                path.endsWith("/member_role") -> "\"owner\""
+                path.endsWith("/save_purchase") -> {
+                    val buffer = okio.Buffer(); request.body!!.writeTo(buffer)
+                    val purchase = JSONObject(buffer.readUtf8()).getJSONObject("purchase")
+                    purchases[purchase.getString("id")] = purchase
+                    "{\"ok\":true}"
+                }
+                path.endsWith("/shared_purchases") -> JSONArray(purchases.values.filter { "eq.${it.getString("list_id")}" == request.url.queryParameter("list_id") }).toString()
                 path.endsWith("/item_photos") -> {
                     if (request.method == "POST") {
                         val buffer = okio.Buffer(); request.body!!.writeTo(buffer)

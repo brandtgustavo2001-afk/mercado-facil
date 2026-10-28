@@ -71,8 +71,9 @@ interface ShoppingDao {
     @Query("SELECT * FROM shopping_lists WHERE deleted = 0 ORDER BY updatedAt DESC") fun lists(): Flow<List<ShoppingList>>
     @Query("SELECT * FROM shopping_items WHERE deleted = 0 ORDER BY purchased, position, name") fun items(): Flow<List<ShoppingItem>>
     @Query("SELECT * FROM purchase_history ORDER BY createdAt DESC, id DESC") fun purchases(): Flow<List<PurchaseHistory>>
+    @Query("DELETE FROM purchase_history WHERE listId = :listId AND id NOT IN (:ids)") suspend fun reconcilePurchases(listId: String, ids: List<String>)
     @Query("SELECT * FROM purchase_history WHERE id = :id") suspend fun purchase(id: String): PurchaseHistory?
-    @Insert suspend fun save(purchase: PurchaseHistory)
+    @Upsert suspend fun save(purchase: PurchaseHistory)
     @Query("DELETE FROM purchase_history WHERE id NOT IN (SELECT id FROM purchase_history ORDER BY createdAt DESC, id DESC LIMIT 10)") suspend fun trimPurchaseHistory()
     @Query("SELECT * FROM shopping_items WHERE listId = :listId AND purchased = 1 AND deleted = 0 ORDER BY position, name") suspend fun selectedItems(listId: String): List<ShoppingItem>
     @Query("SELECT * FROM categories ORDER BY name") fun categories(): Flow<List<Category>>

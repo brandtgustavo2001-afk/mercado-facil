@@ -1,5 +1,12 @@
 package br.com.mercadofacil.ui
 
+import android.net.Uri
+import androidx.core.content.FileProvider
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.*
+import java.io.File
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.util.Base64
@@ -21,19 +28,67 @@ import java.io.ByteArrayOutputStream
 @Composable fun PhotoAttachment(data: String, change: ((String) -> Unit)?, enabled: Boolean) {
     var viewing by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
-    val camera = rememberLauncherForActivityResult(ActivityResultContracts.TakePicturePreview()) { bitmap ->
-        if (bitmap != null) {
-            val bytes = ByteArrayOutputStream()
-            bitmap.compress(Bitmap.CompressFormat.JPEG, 85, bytes)
-            change?.invoke(Base64.encodeToString(bytes.toByteArray(), Base64.NO_WRAP))
-        }
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var capturePath by rememberSaveable { mutableStateOf("") }
+    var processing by remember { mutableStateOf(false) }
+    val camera = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { success ->
+        val path = capturePath
+        if (success && path.isNotEmpty()) scope.launch {
+            processing = true
+            try {
+                val encoded = withContext(Dispatchers.IO) {
+                    val source = File(path)
+                    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                    BitmapFactory.decodeFile(path, bounds)
+                    var sample = 1
+                    while (maxOf(bounds.outWidth, bounds.outHeight) / sample > 2560) sample *= 2
+                    val original = requireNotNull(BitmapFactory.decodeFile(path, BitmapFactory.Options().apply { inSampleSize = sample }))
+                    val scale = minOf(1f, 1920f / maxOf(original.width, original.height))
+                    var bitmap = Bitmap.createScaledBitmap(original, (original.width * scale).toInt().coerceAtLeast(1), (original.height * scale).toInt().coerceAtLeast(1), true)
+                    val orientation = android.media.ExifInterface(path).getAttributeInt(android.media.ExifInterface.TAG_ORIENTATION, 1)
+                    val matrix = android.graphics.Matrix()
+                    when (orientation) {
+                        2 -> matrix.setScale(-1f, 1f)
+                        3 -> matrix.setRotate(180f)
+                        4 -> matrix.setScale(1f, -1f)
+                        5 -> { matrix.setRotate(90f); matrix.postScale(-1f, 1f) }
+                        6 -> matrix.setRotate(90f)
+                        7 -> { matrix.setRotate(270f); matrix.postScale(-1f, 1f) }
+                        8 -> matrix.setRotate(270f)
+                    }
+                    bitmap = Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
+                    var bytes: ByteArray
+                    var quality = 92
+                    do {
+                        val output = ByteArrayOutputStream()
+                        bitmap.compress(Bitmap.CompressFormat.JPEG, quality, output)
+                        bytes = output.toByteArray()
+                        quality -= 8
+                    } while (bytes.size > 1500000 && quality >= 60)
+                    require(bytes.size <= 1500000) { "Foto muito grande. Tente fotografar mais de perto." }
+                    source.delete()
+                    Base64.encodeToString(bytes, Base64.NO_WRAP)
+                }
+                change?.invoke(encoded)
+            } catch (e: Exception) {
+                if (e is CancellationException) throw e
+                error = e.message ?: "Não foi possível salvar a foto."
+            } finally { processing = false }
+        } else if (path.isNotEmpty()) File(path).delete()
     }
     Row {
-        if (change != null) TextButton(enabled = enabled, onClick = {
-            runCatching { camera.launch(null) }.onFailure { error = "Não foi possível abrir a câmera neste aparelho." }
+        if (change != null) TextButton(enabled = enabled && !processing, onClick = {
+            runCatching {
+                val directory = File(context.cacheDir, "captures").apply { mkdirs() }
+                val file = File.createTempFile("item-", ".jpg", directory)
+                capturePath = file.absolutePath
+                camera.launch(FileProvider.getUriForFile(context, "${context.packageName}.photos", file))
+            }.onFailure { error = "Não foi possível abrir a câmera neste aparelho." }
         }) { Text(if (data.isEmpty()) "Tirar foto do item" else "Trocar foto") }
         if (data.isNotEmpty()) TextButton(onClick = { viewing = true }) { Text("Ver foto") }
     }
+    if (processing) Text("Preparando foto…")
     if (error != null) Text(error.orEmpty(), color = MaterialTheme.colorScheme.error)
     if (viewing) Dialog(
         onDismissRequest = { viewing = false },
