@@ -127,7 +127,7 @@ class PurchaseHistoryTest {
             legacy.version = 1
         } finally { legacy.close() }
 
-        val db = Room.databaseBuilder(context, MercadoDatabase::class.java, filename).addMigrations(MIGRATION_1_2).build()
+        val db = Room.databaseBuilder(context, MercadoDatabase::class.java, filename).addMigrations(MIGRATION_1_2, br.com.mercadofacil.database.MIGRATION_2_3).build()
         try {
             assertEquals("Lista antiga", db.dao().list("legacy-list")!!.name)
             assertTrue(db.dao().item("legacy-item")!!.purchased)

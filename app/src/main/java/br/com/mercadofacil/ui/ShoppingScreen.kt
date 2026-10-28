@@ -35,6 +35,7 @@ import br.com.mercadofacil.viewmodel.MainViewModel
     val message by vm.message.collectAsStateWithLifecycle()
     val current = lists.find { it.id == selected } ?: lists.firstOrNull { it.status == "active" }
     val currentProducts = products.filter { it.listId == current?.id }
+    var draftPhoto by rememberSaveable { mutableStateOf("") }
     var draft by rememberSaveable { mutableStateOf("") }
     var quantity by rememberSaveable { mutableStateOf("1") }
     var inputError by remember { mutableStateOf<String?>(null) }
@@ -59,7 +60,7 @@ import br.com.mercadofacil.viewmodel.MainViewModel
     LaunchedEffect(vm, lifecycleOwner) {
         lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) { vm.app.sync.watch() }
     }
-    LaunchedEffect(selected) { tab = 0; draft = ""; quantity = "1"; inputError = null; quantityError = null }
+    LaunchedEffect(selected) { tab = 0; draft = ""; draftPhoto = ""; quantity = "1"; inputError = null; quantityError = null }
     BackHandler(advanced) { advanced = false }
     ShoppingTheme(dark) {
         UpdatePrompt(vm, checkUpdates)
@@ -69,6 +70,7 @@ import br.com.mercadofacil.viewmodel.MainViewModel
         ) { padding -> SettingsScreen(vm, Modifier.padding(padding)) }
         else ShoppingContent(
             products = currentProducts, purchases = purchases,
+            photoData = draftPhoto, onPhotoChange = { draftPhoto = it },
             selectedTab = tab, onTabChange = { tab = it }, draft = draft,
             onDraftChange = { draft = it; inputError = null },
             quantity = quantity, onQuantityChange = { quantity = it; quantityError = null },
@@ -78,7 +80,7 @@ import br.com.mercadofacil.viewmodel.MainViewModel
                 if (name.length > 200) inputError = "Use até 200 caracteres para o produto."
                 else if (list != null && name.isNotEmpty() && !adding) {
                     val position = (currentProducts.maxOfOrNull { it.position } ?: -1) + 1
-                    val item = runCatching { quickShoppingItem(list.id, name, quantity, position) }
+                    val item = runCatching { quickShoppingItem(list.id, name, quantity, position).copy(photoData = draftPhoto) }
                         .onFailure { quantityError = it.message ?: "Quantidade inválida." }.getOrNull()
                     if (item != null) {
                         adding = true
@@ -87,6 +89,7 @@ import br.com.mercadofacil.viewmodel.MainViewModel
                                 vm.repository.save(item)
                                 if (list.status != "active") vm.save(list.copy(status = "active"))
                                 draft = ""
+                                draftPhoto = ""
                                 quantity = "1"
                                 vm.requestSync()
                             } finally { adding = false }
@@ -158,18 +161,20 @@ import br.com.mercadofacil.viewmodel.MainViewModel
 }
 
 @Composable private fun SimpleProductEditor(product: ShoppingItem, dismiss: () -> Unit, save: (ShoppingItem) -> Unit) {
+    var photo by remember { mutableStateOf(product.photoData) }
     var name by remember { mutableStateOf(product.name) }
     var quantity by remember { mutableStateOf(product.quantity.replace('.', ',')) }
     var unit by remember { mutableStateOf(product.unit) }
     var error by remember { mutableStateOf<String?>(null) }
     AlertDialog(onDismissRequest = dismiss, title = { Text("Editar produto") }, text = {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            PhotoAttachment(photo, { photo = it }, true)
             Field("Produto", name, { name = it }); Field("Quantidade", quantity, { quantity = it }, true)
             Choice("Unidade", unit, units) { unit = it }
             error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         }
     }, confirmButton = { TextButton(onClick = { runCatching {
         require(name.isNotBlank() && name.length <= 200) { "Informe o nome do produto (até 200 caracteres)." }
-        save(product.copy(name = name.trim(), quantity = Money.quantity(quantity), unit = unit))
+        save(product.copy(name = name.trim(), quantity = Money.quantity(quantity), unit = unit, photoData = photo))
     }.onFailure { error = it.message } }) { Text("Salvar") } }, dismissButton = { TextButton(onClick = dismiss) { Text("Cancelar") } })
 }

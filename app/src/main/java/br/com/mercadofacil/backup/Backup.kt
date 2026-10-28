@@ -11,7 +11,7 @@ class Backup(private val repository: ShoppingRepository) {
     suspend fun export(): String = repository.db.withTransaction {
         JSONObject().put("format", "mercado-facil").put("version", 2)
             .put("lists", JSONArray().also { out -> repository.dao.allLists().filter { !it.deleted }.forEach { out.put(it.json().put("created_at", it.createdAt)) } })
-            .put("items", JSONArray().also { out -> repository.dao.allItems().filter { !it.deleted }.forEach { out.put(it.json().put("favorite", it.favorite)) } })
+            .put("items", JSONArray().also { out -> repository.dao.allItems().filter { !it.deleted }.forEach { out.put(it.json().put("favorite", it.favorite).put("photo_data", it.photoData)) } })
             .put("purchases", JSONArray().also { out -> repository.dao.purchases().first().forEach {
                 out.put(JSONObject().put("id", it.id).put("list_id", it.listId).put("list_name", it.listName)
                     .put("created_at", it.createdAt).put("items_json", it.itemsJson)
@@ -40,7 +40,7 @@ class Backup(private val repository: ShoppingRepository) {
                     val list = requireNotNull(repository.dao.list(d.getString("list_id"))) { "Produto sem lista" }
                     // Restoring never writes into a live shared list.
                     require(!list.shared) { "O backup contém produtos de uma lista compartilhada já existente" }
-                    repository.save(ShoppingItem(id = id, listId = list.id, name = d.getString("name"), quantity = Money.quantity(d.getString("quantity")), unit = d.getString("unit"), estimatedCents = d.getLong("estimated_cents"), actualCents = if (d.isNull("actual_cents")) null else d.getLong("actual_cents"), category = d.getString("category"), brand = d.optString("brand"), notes = d.optString("notes"), purchased = d.getBoolean("purchased"), favorite = d.optBoolean("favorite")))
+                    repository.save(ShoppingItem(id = id, listId = list.id, name = d.getString("name"), quantity = Money.quantity(d.getString("quantity")), unit = d.getString("unit"), estimatedCents = d.getLong("estimated_cents"), actualCents = if (d.isNull("actual_cents")) null else d.getLong("actual_cents"), category = d.getString("category"), brand = d.optString("brand"), notes = d.optString("notes"), purchased = d.getBoolean("purchased"), favorite = d.optBoolean("favorite"), photoData = d.optString("photo_data")))
                     count++
                 }
             }

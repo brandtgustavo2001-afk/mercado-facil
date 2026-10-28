@@ -29,8 +29,9 @@ class ShoppingRepository(val db: MercadoDatabase) {
         Money.quantity(item.quantity)
         require(item.estimatedCents >= 0 && (item.actualCents ?: 0) >= 0)
         Money.line(item.quantity, item.actualCents ?: item.estimatedCents)
-        val next = item.copy(name = item.name.trim(), updatedAt = System.currentTimeMillis())
-        val before = dao.item(next.id)
+        val before = dao.item(item.id)
+        val next = item.copy(name = item.name.trim(), updatedAt = System.currentTimeMillis(),
+            photoDirty = item.photoDirty || before?.photoData != item.photoData && (before != null || item.photoData.isNotEmpty()))
         dao.save(next)
         val list = requireNotNull(dao.list(item.listId))
         dao.save(list.copy(updatedAt = next.updatedAt))
@@ -77,6 +78,7 @@ class ShoppingRepository(val db: MercadoDatabase) {
     suspend fun share(list: ShoppingList) = db.withTransaction {
         require(!list.shared)
         save(list.copy(shared = true))
+        dao.allItems().filter { it.listId == list.id && it.photoData.isNotEmpty() }.forEach { dao.save(it.copy(photoDirty = true)) }
         // Existing local products are new remote entities when collaboration starts.
         dao.allItems().filter { it.listId == list.id && !it.deleted }.forEach {
             dao.enqueue(SyncOperation(entityId = it.id, listId = list.id, entityType = "item",

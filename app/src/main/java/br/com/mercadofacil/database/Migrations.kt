@@ -19,3 +19,10 @@ val MIGRATION_1_2 = object : Migration(1, 2) {
         """.trimIndent())
     }
 }
+
+val MIGRATION_2_3 = object : Migration(2, 3) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE shopping_items ADD COLUMN photoData TEXT NOT NULL DEFAULT ''")
+        db.execSQL("ALTER TABLE shopping_items ADD COLUMN photoDirty INTEGER NOT NULL DEFAULT 0")
+    }
+}

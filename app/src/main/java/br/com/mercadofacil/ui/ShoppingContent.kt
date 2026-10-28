@@ -81,6 +81,8 @@ import java.util.Locale
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable fun ShoppingContent(
     products: List<ShoppingItem>,
+    photoData: String,
+    onPhotoChange: (String) -> Unit,
     purchases: List<PurchaseHistory>,
     selectedTab: Int,
     onTabChange: (Int) -> Unit,
@@ -154,6 +156,7 @@ import java.util.Locale
                     }
                     Column(Modifier.fillMaxWidth().widthIn(max = 640.dp).padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 12.dp),
                         verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        PhotoAttachment(photoData, onPhotoChange, !loading && !adding)
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedTextField(
                             value = draft, onValueChange = onDraftChange,
@@ -371,6 +374,7 @@ import java.util.Locale
                     textDecoration = if (product.purchased) TextDecoration.LineThrough else TextDecoration.None)
                 Text("${product.quantity.replace('.', ',')} ${product.unit}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 3.dp))
             }
+            PhotoAttachment(product.photoData, null, true)
             Box {
                 IconButton(onClick = { menu = true }) { Icon(Icons.Outlined.MoreHoriz, "Opções de ${product.name}", tint = MaterialTheme.colorScheme.onSurfaceVariant) }
                 DropdownMenu(menu, { menu = false }) {

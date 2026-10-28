@@ -4,6 +4,8 @@ Este projeto é uma primeira implementação funcional, **não a conclusão inte
 
 ## Verificado no ambiente local
 
+- Versão 1.0.14 adiciona fotos de referência, cache offline, migração Room 2→3, backup e sincronização de imagens em tabela separada com RLS. Configuração aplicada ao Supabase. 56 testes e lint aprovados, incluindo foto entre duas bases simuladas. Câmera usa preview do Android; resolução limitada. Validação física entre celulares pendente.
+
 - Versão 1.0.13 oculta o nome da lista e o texto de sincronização acima dos produtos, conforme o destaque enviado. A lista, o compartilhamento e a sincronização continuam ativos. Compilação debug aprovada.
 - Versão 1.0.12 move a quantidade para a direita do campo de produto, em um seletor compacto com opções de 1 a 10 e Personalizado ao final. A opção personalizada aceita decimais e valores acima de 10, mantendo o envio pela sincronização existente. A compilação Android e os testes unitários foram validados; a interação ainda precisa ser conferida em um aparelho físico.
 - Versão 1.0.11 permite informar a quantidade diretamente abaixo do nome do produto na inclusão rápida, valida quantidades positivas, mostra a quantidade de todos os produtos na lista e usa o valor informado na sincronização existente. Três novos testes verificam a inclusão com decimais brasileiros e entradas inválidas. A compilação, os testes automatizados e o lint passaram; a validação visual em celular e a sincronização física entre aparelhos ainda estão pendentes.

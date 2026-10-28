@@ -98,9 +98,46 @@ class SyncEngine(
                 }
             }
             pull()
+            syncPhotos()
             uploadFailure?.let { throw it }
             status.value = if (repository.dao.totalQueued() == 0) "Sincronizado" else "Há alterações pendentes; confira Conta e ajustes"
         } catch (e: Exception) { if (e is CancellationException) throw e; status.value = "Não foi possível sincronizar: ${e.message ?: "verifique sua conexão"}"; throw e }
+    }
+    private suspend fun syncPhotos() {
+        val shared = repository.dao.allLists().filter { it.shared && !it.deleted }.map { it.id }.toSet()
+        for (item in repository.dao.allItems().filter { it.listId in shared && it.photoDirty && !it.deleted }) {
+            if (repository.dao.queued(item.id) > 0) continue
+            val config = settings.get()
+            val body = JSONObject().put("item_id", item.id).put("list_id", item.listId)
+                .put("photo_data", item.photoData).put("updated_at", java.time.Instant.now().toString())
+            withContext(Dispatchers.IO) {
+                val req = Request.Builder().url("${config.supabaseUrl}/rest/v1/item_photos?on_conflict=item_id")
+                    .header("apikey", config.supabaseKey).header("Authorization", "Bearer ${token()}")
+                    .header("Prefer", "resolution=merge-duplicates")
+                    .post(body.toString().toRequestBody("application/json".toMediaType())).build()
+                client.newCall(req).execute().use { check(it.isSuccessful) { "Não foi possível enviar a foto. Ela será tentada novamente." } }
+            }
+            repository.db.withTransaction {
+                repository.dao.item(item.id)?.let { current ->
+                    if (current.photoData == item.photoData) repository.dao.save(current.copy(photoDirty = false))
+                }
+            }
+        }
+        for (listId in shared) {
+            var offset = 0
+            do {
+                val rows = JSONArray(request("/rest/v1/item_photos?list_id=eq.$listId&select=item_id,photo_data&order=item_id&limit=50&offset=$offset", token = token()))
+                for (i in 0 until rows.length()) {
+                    val row = rows.getJSONObject(i)
+                    repository.db.withTransaction {
+                        repository.dao.item(row.getString("item_id"))?.let { local ->
+                            if (!local.photoDirty) repository.dao.save(local.copy(photoData = row.getString("photo_data")))
+                        }
+                    }
+                }
+                offset += rows.length()
+            } while (rows.length() == 50)
+        }
     }
     private suspend fun pull() {
         var offset = 0
@@ -122,7 +159,7 @@ class SyncEngine(
                             if (repository.dao.queued(itemId) == 0) {
                                 val item = itemRow.getJSONObject("data")
                                 val local = repository.dao.item(itemId)
-                                repository.dao.save(ShoppingItem(id = itemId, listId = id, name = item.getString("name"), quantity = item.getString("quantity"), unit = item.optString("unit", "un"), estimatedCents = item.optLong("estimated_cents"), actualCents = if (item.isNull("actual_cents")) null else item.getLong("actual_cents"), category = item.optString("category", "Outros"), brand = item.optString("brand"), notes = item.optString("notes"), purchased = item.optBoolean("purchased"), purchasedBy = itemRow.optString("updated_by"), version = itemRow.getLong("version"), deleted = item.optBoolean("deleted"), position = local?.position ?: 0, favorite = local?.favorite ?: false))
+                                repository.dao.save(ShoppingItem(id = itemId, listId = id, name = item.getString("name"), quantity = item.getString("quantity"), unit = item.optString("unit", "un"), estimatedCents = item.optLong("estimated_cents"), actualCents = if (item.isNull("actual_cents")) null else item.getLong("actual_cents"), category = item.optString("category", "Outros"), brand = item.optString("brand"), notes = item.optString("notes"), purchased = item.optBoolean("purchased"), purchasedBy = itemRow.optString("updated_by"), version = itemRow.getLong("version"), deleted = item.optBoolean("deleted"), photoData = local?.photoData ?: "", photoDirty = local?.photoDirty ?: false, position = local?.position ?: 0, favorite = local?.favorite ?: false))
                             }
                         }
                     }

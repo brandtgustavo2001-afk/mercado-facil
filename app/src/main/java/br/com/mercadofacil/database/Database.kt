@@ -30,6 +30,8 @@ data class ShoppingItem(
     val category: String = "Outros",
     val brand: String = "",
     val notes: String = "",
+    val photoData: String = "",
+    val photoDirty: Boolean = false,
     val purchased: Boolean = false,
     val favorite: Boolean = false,
     val position: Int = 0,
@@ -92,7 +94,7 @@ interface ShoppingDao {
     @Query("UPDATE sync_operations SET status = :status, error = :error, retryCount = retryCount + 1 WHERE operationId = :id") suspend fun failed(id: String, status: String, error: String)
     @Query("SELECT COUNT(*) FROM sync_operations WHERE entityId = :id") suspend fun queued(id: String): Int
 }
-@Database(entities = [ShoppingList::class, ShoppingItem::class, Category::class, SyncOperation::class, PurchaseHistory::class], version = 2, exportSchema = true)
+@Database(entities = [ShoppingList::class, ShoppingItem::class, Category::class, SyncOperation::class, PurchaseHistory::class], version = 3, exportSchema = true)
 abstract class MercadoDatabase : RoomDatabase() { abstract fun dao(): ShoppingDao }
 
 val defaultCategories = listOf("Açougue", "Hortifruti", "Padaria", "Laticínios", "Bebidas", "Mercearia", "Congelados", "Limpeza", "Higiene pessoal", "Pet Shop", "Farmácia", "Outros")

@@ -67,10 +67,12 @@ class SharedShoppingTest {
             assertEquals("Arroz", second.dao.allItems().single().name)
             assertEquals("Sábado", second.dao.list(list.id)?.description)
             val nescau = quickShoppingItem(list.id, "Nescau", "2", 1).copy(unit = "pct",
-                brand = "Nestlé", notes = "400 g", estimatedCents = 1200, actualCents = 1100, category = "Mercearia")
+                photoData = "dGVzdC1waG90bw==", brand = "Nestlé", notes = "400 g", estimatedCents = 1200, actualCents = 1100, category = "Mercearia")
             first.save(nescau); owner.sync(); guest.sync()
             val received = requireNotNull(second.dao.item(nescau.id))
             assertEquals("Nescau", received.name)
+            assertEquals(nescau.photoData, received.photoData)
+            assertFalse(received.photoDirty)
             assertEquals("2", received.quantity); assertEquals("pct", received.unit)
             assertEquals("Nestlé", received.brand); assertEquals("400 g", received.notes)
             assertEquals(1200L, received.estimatedCents); assertEquals(1100L, received.actualCents)
@@ -200,6 +202,7 @@ class SharedShoppingTest {
     private inner class Server : Interceptor {
         val lists = linkedMapOf<String, JSONObject>()
         val items = linkedMapOf<String, JSONObject>()
+        val photos = linkedMapOf<String, JSONObject>()
         var invitedList = ""
         var deniedList = ""
         var offline = false
@@ -226,6 +229,13 @@ class SharedShoppingTest {
                             .put("version", (current?.optLong("version") ?: 0) + 1)
                         "{\"ok\":true}"
                     }
+                }
+                path.endsWith("/item_photos") -> {
+                    if (request.method == "POST") {
+                        val buffer = okio.Buffer(); request.body!!.writeTo(buffer)
+                        val photo = JSONObject(buffer.readUtf8()); photos[photo.getString("item_id")] = photo
+                        "{}"
+                    } else JSONArray(photos.values.filter { "eq.${it.getString("list_id")}" == request.url.queryParameter("list_id") }).toString()
                 }
                 path.endsWith("/accept_invitation") -> JSONObject().put("list_id", invitedList).toString()
                 path.endsWith("/shopping_lists") -> JSONArray(lists.values.toList()).toString()
