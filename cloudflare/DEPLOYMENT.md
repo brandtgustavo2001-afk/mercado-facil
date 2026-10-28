@@ -9,8 +9,8 @@
 
 ## Pendente
 
-Aguardar confirmação do titular para criar uma conta de serviço exclusiva com a permissão roles/firebasecloudmessaging.admin (envio de mensagens), gerar sua chave JSON e guardá-la como segredo FIREBASE_SERVICE_ACCOUNT no Worker. Nunca versionar essa chave, colocá-la no APK ou imprimir seus valores.
-O endpoint /health confirma r2=true e push=false enquanto o segredo estiver ausente. Nenhum APK novo foi publicado nesta etapa.
+A conta exclusiva mercado-facil-push@mercado-facil-9abe5.iam.gserviceaccount.com foi criada com o papel roles/firebasecloudmessaging.admin. A chave JSON foi gerada no Google Cloud, mas ainda precisa ser salva em C:\Users\Brandt\.codex\secrets\mercado-facil\mercado-facil-push.json e configurada como segredo FIREBASE_SERVICE_ACCOUNT no Worker. Nunca versionar essa chave, colocá-la no APK ou imprimir seus valores.
+Até configurar o segredo, /health indica push=false; notificações remotas não estão ativas. O bucket R2 e a migração Supabase estão configurados. A compilação, os 57 testes Android e os 7 testes do Worker passaram; nenhum APK novo foi publicado nesta etapa.
 
 ## Fluxos
 
