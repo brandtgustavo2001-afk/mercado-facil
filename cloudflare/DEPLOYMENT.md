@@ -7,10 +7,10 @@
 - Migração 202610280003_r2_and_push.sql aplicada ao Supabase em 28/10/2026.
 - Worker implantado pelo editor do painel, com fonte compactada equivalente ao worker.mjs. Uma próxima implantação via Wrangler deve usar este arquivo e preservar os segredos.
 
-## Pendente
+## Estado atual
 
-A conta exclusiva mercado-facil-push@mercado-facil-9abe5.iam.gserviceaccount.com foi criada com o papel roles/firebasecloudmessaging.admin. A chave JSON foi gerada no Google Cloud, mas ainda precisa ser salva em C:\Users\Brandt\.codex\secrets\mercado-facil\mercado-facil-push.json e configurada como segredo FIREBASE_SERVICE_ACCOUNT no Worker. Nunca versionar essa chave, colocá-la no APK ou imprimir seus valores.
-Até configurar o segredo, /health indica push=false; notificações remotas não estão ativas. O bucket R2 e a migração Supabase estão configurados. A compilação, os 57 testes Android e os 7 testes do Worker passaram; nenhum APK novo foi publicado nesta etapa.
+A conta exclusiva mercado-facil-push@mercado-facil-9abe5.iam.gserviceaccount.com usa o papel roles/firebasecloudmessaging.admin. A credencial está configurada como segredo FIREBASE_SERVICE_ACCOUNT no Worker, fora do APK e do repositório. O endpoint /health respondeu r2=true e push=true.
+O OAuth da conta de serviço foi validado. Uma requisição FCM dry-run com token fictício retornou INVALID_ARGUMENT, como esperado para um token inválido; isso valida a autenticação, mas não substitui um envio para um aparelho real. A versão 1.0.18 ainda precisa ser publicada e instalada para registrar tokens FCM e usar R2 nos celulares. Não houve teste físico com dois aparelhos nem com o app encerrado.
 
 ## Fluxos
 
@@ -22,8 +22,8 @@ O aplicativo mantém a fila offline e copia a imagem no banco local. As notifica
 
 ## Validação desta etapa
 
-- Compilação Android, 56 testes unitários/integrados locais e lint aprovados.
+- Compilação Android, 57 testes unitários/integrados locais e lint aprovados.
 - node --test cloudflare/worker.test.mjs: 7 casos de acesso, upload e isolamento.
 - SQL no Supabase em transação com rollback: registro/saída do dispositivo, bloqueio de viewer, seleção de destinatários e deduplicação passaram.
-- Endpoint público /health respondeu e /photos sem login retornou 401.
-- Ainda não validado: foto real no R2, envio FCM real, dois aparelhos e app encerrado. Não afirmar push ativo antes de configurar a credencial e testar.
+- Endpoint público /health respondeu r2=true e push=true; /photos sem login retornou 401.
+- Ainda não validado: foto real no R2, envio FCM para aparelho real, sincronização em dois aparelhos e recebimento com app encerrado.
