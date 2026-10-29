@@ -14,5 +14,5 @@ fun quickShoppingItemFromInput(listId: String, name: String, quantityInput: Stri
 fun quickShoppingItem(listId: String, name: String, quantityInput: String, position: Int): ShoppingItem {
     val trimmed = name.trim()
     require(trimmed.isNotEmpty() && trimmed.length <= 200) { "Informe o nome do produto (até 200 caracteres)." }
-    return ShoppingItem(listId = listId, name = trimmed, quantity = Money.quantity(quantityInput), position = position)
+    return ShoppingItem(listId = listId, name = normalizeProductName(trimmed), quantity = Money.quantity(quantityInput), position = position)
 }

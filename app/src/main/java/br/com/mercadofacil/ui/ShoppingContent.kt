@@ -161,7 +161,7 @@ import java.util.Locale
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedTextField(
                             value = draft, onValueChange = onDraftChange,
-                            placeholder = { Text("Adicionar produto...") },
+                            placeholder = { Text("Produto...", maxLines = 1, overflow = TextOverflow.Ellipsis) },
                             modifier = Modifier.weight(1f), shape = RoundedCornerShape(15.dp),
                             singleLine = true, enabled = !loading && !adding,
                             isError = error != null,

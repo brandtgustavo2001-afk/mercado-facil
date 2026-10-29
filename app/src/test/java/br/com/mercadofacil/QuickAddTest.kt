@@ -8,7 +8,7 @@ import org.junit.Test
 class QuickAddTest {
     @Test fun separatesQuantityDictatedThroughKeyboard() {
         val item = br.com.mercadofacil.domain.quickShoppingItemFromInput("list", "dois arroz", "1", 0)
-        assertEquals("arroz", item.name)
+        assertEquals("Arroz", item.name)
         assertEquals("2", item.quantity)
     }
     @Test fun addsProductWithTypedBrazilianQuantity() {

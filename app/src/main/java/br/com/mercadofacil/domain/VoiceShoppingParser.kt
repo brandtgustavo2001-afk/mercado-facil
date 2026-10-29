@@ -38,7 +38,7 @@ fun parseSpokenShoppingItems(speech: String): List<SpokenShoppingItem> {
         val rawQuantity = match?.groupValues?.get(1)?.lowercase()
         val quantity = rawQuantity?.let { spokenNumberWords[it] ?: it } ?: "1"
         val checkedQuantity = runCatching { Money.quantity(quantity) }.getOrNull() ?: return emptyList()
-        result += SpokenShoppingItem(name, checkedQuantity)
+        result += SpokenShoppingItem(normalizeProductName(name), checkedQuantity)
     }
     return result
 }
