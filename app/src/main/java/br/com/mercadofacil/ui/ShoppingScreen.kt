@@ -158,26 +158,33 @@ import br.com.mercadofacil.viewmodel.MainViewModel
         )
         voiceTranscript?.let { original ->
             val recognizedItems = remember(original) { parseSpokenShoppingItems(original) }
+            var correctingSpeech by remember { mutableStateOf(false) }
             AlertDialog(
                 onDismissRequest = { if (!adding) voiceTranscript = null },
                 title = { Text("Adicionar por voz") },
                 text = {
                     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Text("Confira o que foi entendido. Você pode corrigir o texto antes de adicionar.")
+                        Text("Confira os produtos e as quantidades.")
+                        if (correctingSpeech) {
                         OutlinedTextField(
                             value = original,
                             onValueChange = { voiceTranscript = it.take(1500) },
-                            label = { Text("Produtos falados") },
+                            label = { Text("Corrigir fala") },
                             modifier = Modifier.fillMaxWidth(),
                             minLines = 2, maxLines = 4,
                             enabled = !adding
                         )
+                        }
+                        TextButton(enabled = !adding, onClick = { correctingSpeech = !correctingSpeech }) {
+                            Text(if (correctingSpeech) "Concluir correção" else "Corrigir fala")
+                        }
                         if (recognizedItems.isEmpty()) {
                             Text("Não identifiquei produtos válidos. Tente falar as quantidades e os nomes novamente.", color = MaterialTheme.colorScheme.error)
                         } else {
                             Column(Modifier.heightIn(max = 220.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                 recognizedItems.forEach { item ->
-                                    Text("${item.quantity.replace('.', ',')} × ${item.name}")
+                                    Text(item.name, style = MaterialTheme.typography.titleMedium)
+                                    Text("Quantidade: ${item.quantity.replace('.', ',')}", color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                             }
                         }
@@ -205,7 +212,7 @@ import br.com.mercadofacil.viewmodel.MainViewModel
                                 } finally { adding = false }
                             }
                         }
-                    ) { Text(if (adding) "Adicionando..." else "Adicionar ${recognizedItems.size}") }
+                    ) { Text(if (adding) "Adicionando..." else if (recognizedItems.size == 1) "Adicionar produto" else "Adicionar ${recognizedItems.size} produtos") }
                 },
                 dismissButton = { TextButton(enabled = !adding, onClick = { voiceTranscript = null }) { Text("Cancelar") } }
             )
