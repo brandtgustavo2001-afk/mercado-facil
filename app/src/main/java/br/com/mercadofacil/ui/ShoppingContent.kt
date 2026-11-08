@@ -84,6 +84,7 @@ import java.util.Locale
     photoData: String,
     onPhotoChange: (String) -> Unit,
     purchases: List<PurchaseHistory>,
+    injections: @Composable () -> Unit,
     selectedTab: Int,
     onTabChange: (Int) -> Unit,
     draft: String,
@@ -130,6 +131,11 @@ import java.util.Locale
                     text = { Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                         Icon(Icons.AutoMirrored.Outlined.ReceiptLong, null, Modifier.size(19.dp))
                         Text("Compras (${purchases.size})", fontWeight = if (selectedTab == 1) FontWeight.Bold else FontWeight.Medium)
+                    } })
+                Tab(selected = selectedTab == 2, onClick = { onTabChange(2) },
+                    text = { Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                        Icon(Icons.Outlined.MedicalServices, null, Modifier.size(19.dp))
+                        Text("Injeções", fontWeight = if (selectedTab == 2) FontWeight.Bold else FontWeight.Medium)
                     } })
             }
         } },
@@ -192,7 +198,8 @@ import java.util.Locale
         }
     ) { padding ->
         Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.TopCenter) {
-            if (selectedTab == 1) PurchaseHistoryContent(purchases)
+            if (selectedTab == 2) injections()
+            else if (selectedTab == 1) PurchaseHistoryContent(purchases)
             else if (loading) CircularProgressIndicator(Modifier.padding(48.dp))
             else LazyColumn(
                 Modifier.fillMaxSize().widthIn(max = 640.dp),

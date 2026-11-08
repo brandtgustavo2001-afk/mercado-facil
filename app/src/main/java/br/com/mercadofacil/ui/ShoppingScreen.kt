@@ -33,7 +33,7 @@ import br.com.mercadofacil.domain.quickShoppingItem
 import br.com.mercadofacil.viewmodel.MainViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
-@Composable fun MercadoScreen(vm: MainViewModel) {
+@Composable fun MercadoScreen(vm: MainViewModel, openInjectionTab: Boolean = false, onInjectionTabOpened: () -> Unit = {}) {
     val lists by vm.lists.collectAsStateWithLifecycle()
     val products by vm.items.collectAsStateWithLifecycle()
     val purchases by vm.purchases.collectAsStateWithLifecycle()
@@ -73,10 +73,11 @@ import br.com.mercadofacil.viewmodel.MainViewModel
     val lifecycleOwner = LocalLifecycleOwner.current
     val dark = config.theme == "dark" || config.theme == "auto" && isSystemInDarkTheme()
     LaunchedEffect(message) { message?.let { snackbar.showSnackbar(it); vm.message.value = null } }
+    LaunchedEffect(openInjectionTab) { if (openInjectionTab) { tab = 2; onInjectionTabOpened() } }
     LaunchedEffect(vm, lifecycleOwner) {
         lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) { vm.app.sync.watch() }
     }
-    LaunchedEffect(selected) { tab = 0; draft = ""; vm.draftPhoto.value = ""; quantity = "1"; inputError = null; quantityError = null; voiceTranscript = null }
+    LaunchedEffect(selected) { if (tab != 2) tab = 0; draft = ""; vm.draftPhoto.value = ""; quantity = "1"; inputError = null; quantityError = null; voiceTranscript = null }
     BackHandler(advanced) { advanced = false }
     ShoppingTheme(dark) {
         UpdatePrompt(vm, checkUpdates)
@@ -86,6 +87,7 @@ import br.com.mercadofacil.viewmodel.MainViewModel
         ) { padding -> SettingsScreen(vm, Modifier.padding(padding)) }
         else ShoppingContent(
             products = currentProducts, purchases = purchases.filter { it.listId == current?.id }.take(10),
+            injections = { InjectionScreen(vm) },
             photoData = draftPhoto, onPhotoChange = { vm.draftPhoto.value = it },
             selectedTab = tab, onTabChange = { tab = it }, draft = draft,
             onDraftChange = { draft = it; inputError = null },

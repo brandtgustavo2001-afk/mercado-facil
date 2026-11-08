@@ -32,6 +32,11 @@ object PushNotifications {
                 description = "Novos itens e compras concluídas por outros participantes"
                 lockscreenVisibility = android.app.Notification.VISIBILITY_PRIVATE
             })
+        context.getSystemService(NotificationManager::class.java).createNotificationChannel(
+            NotificationChannel("injection_reminders", "Lembretes de aplicação", NotificationManager.IMPORTANCE_DEFAULT).apply {
+                description = "Lembretes locais de aplicações cadastradas no Mercado Fácil"
+                lockscreenVisibility = android.app.Notification.VISIBILITY_PRIVATE
+            })
         FirebaseMessaging.getInstance().token.addOnSuccessListener { token ->
             preferences(context).edit().putString("token", token).apply()
             schedule(context)

@@ -22,6 +22,8 @@ A tela inicial é uma lista direta: digite o produto no campo inferior e toque e
 
 Crie listas e produtos sem login e sem conexão. Preços são centavos inteiros; quantidades são decimais exatos, com até três casas. Cada linha é arredondada uma vez em HALF_UP. Há orçamento e projeção, marcação de compras, edição de preço e quantidade, duplicação, arquivo, exclusão confirmada, categorias, busca, sugestões de produtos anteriores, favoritos, histórico de listas, resumo por mês/categoria e temas claro/escuro/automático.
 
+A aba **Injeções** organiza rotinas recorrentes, próxima data, lembretes locais e histórico editável das aplicações. Os dados ficam no aparelho e não entram na sincronização nem no backup JSON; os intervalos devem seguir a orientação do profissional de saúde.
+
 Compartilhamento por texto funciona sem Supabase. Backups JSON e relatórios CSV usam o seletor de arquivos Android. Importar exige confirmação, é transacional, preserva os UUIDs e acrescenta registros ausentes sem substituir dados existentes. Listas importadas são locais. O backup JSON versão 2 cobre listas, itens e as últimas 10 compras; restauração também aceita backups anteriores de versão 1. Configurações e sessões não são exportadas.
 
 Leitura de códigos usa Google Code Scanner: requer Google Play Services e o módulo de leitura disponível. Consulta opcional ao Open Food Facts por HTTPS; indisponibilidade ou produto ausente permite cadastro manual. A disponibilidade dessa base não é garantida.
@@ -79,7 +81,7 @@ Para criar a primeira chave local e compilar um release:
 python tools/build_release.py
 ```
 
-A chave e as senhas ficam **fora do repositório**, em `~/.codex/secrets/mercado-facil`. Faça backup seguro dessa pasta; perder a chave impede atualizar instalações existentes. O script não imprime senhas e reutiliza a chave nas próximas execuções. O arquivo `tools/build_release.py` gera a versão 1.0.19 por padrão; use `--version` e `--code` para selecionar outra versão.
+A chave e as senhas ficam **fora do repositório**, em `~/.codex/secrets/mercado-facil`. Faça backup seguro dessa pasta; perder a chave impede atualizar instalações existentes. O script não imprime senhas e reutiliza a chave nas próximas execuções. O arquivo `tools/build_release.py` gera a versão 1.0.24 por padrão; use `--version` e `--code` para selecionar outra versão.
 
 Configure os quatro Secrets no GitHub → Settings → Secrets and variables → Actions:
 

@@ -7,10 +7,12 @@ import kotlinx.coroutines.launch
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.viewmodel.compose.viewModel
 import br.com.mercadofacil.ui.MercadoScreen
 
 class MainActivity : ComponentActivity() {
+    private val openInjectionTab = mutableStateOf(false)
     override fun onResume() {
         super.onResume()
         br.com.mercadofacil.notifications.PushNotifications.initialize(this)
@@ -32,9 +34,11 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         openSharedList(intent)
+        if (intent.getBooleanExtra("open_injections", false)) openInjectionTab.value = true
     }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        openInjectionTab.value = intent.getBooleanExtra("open_injections", false)
         openSharedList(intent)
         if (android.os.Build.VERSION.SDK_INT >= 33 &&
             checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
@@ -46,6 +50,6 @@ class MainActivity : ComponentActivity() {
         }
         br.com.mercadofacil.notifications.PushNotifications.initialize(this)
         enableEdgeToEdge()
-        setContent { MercadoScreen(viewModel()) }
+        setContent { MercadoScreen(viewModel(), openInjectionTab.value) { openInjectionTab.value = false } }
     }
 }

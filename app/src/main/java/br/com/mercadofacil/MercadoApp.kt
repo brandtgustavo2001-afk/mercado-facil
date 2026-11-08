@@ -6,6 +6,7 @@ import androidx.work.*
 import br.com.mercadofacil.database.MercadoDatabase
 import br.com.mercadofacil.database.MIGRATION_1_2
 import br.com.mercadofacil.database.MIGRATION_2_3
+import br.com.mercadofacil.database.MIGRATION_3_4
 import br.com.mercadofacil.repository.ShoppingRepository
 import br.com.mercadofacil.data.Settings
 import br.com.mercadofacil.sync.SyncEngine
@@ -14,7 +15,7 @@ import br.com.mercadofacil.updater.UpdateWorker
 import java.util.concurrent.TimeUnit
 
 class MercadoApp : Application() {
-    val db by lazy { Room.databaseBuilder(this, MercadoDatabase::class.java, "mercado.db").addMigrations(MIGRATION_1_2, MIGRATION_2_3).build() }
+    val db by lazy { Room.databaseBuilder(this, MercadoDatabase::class.java, "mercado.db").addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4).build() }
     val repository by lazy { ShoppingRepository(db) }
     val settings by lazy { Settings(this) }
     val sync by lazy { SyncEngine(this, repository, settings) }
