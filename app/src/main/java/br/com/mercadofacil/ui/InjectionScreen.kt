@@ -21,6 +21,7 @@ import br.com.mercadofacil.domain.injectionIntervalLabel
 import br.com.mercadofacil.viewmodel.MainViewModel
 import java.time.Instant
 import java.time.LocalDate
+import java.time.YearMonth
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
@@ -30,22 +31,35 @@ import java.util.Locale
     val schedules by vm.injectionSchedules.collectAsStateWithLifecycle()
     val records by vm.injectionRecords.collectAsStateWithLifecycle()
     var filter by rememberSaveable { mutableStateOf("ATIVAS") }
+    var personFilter by rememberSaveable { mutableStateOf("") }
     var adding by rememberSaveable { mutableStateOf(false) }
     var editing by remember { mutableStateOf<InjectionSchedule?>(null) }
     var logging by remember { mutableStateOf<InjectionSchedule?>(null) }
     var editingRecord by remember { mutableStateOf<Pair<InjectionSchedule, InjectionRecord>?>(null) }
     var deleting by remember { mutableStateOf<InjectionSchedule?>(null) }
     var deletingRecord by remember { mutableStateOf<Pair<InjectionSchedule, InjectionRecord>?>(null) }
+    var calendarMonthText by rememberSaveable { mutableStateOf(YearMonth.now().toString()) }
+    var calendarDateText by rememberSaveable { mutableStateOf(LocalDate.now().toString()) }
+    val calendarMonth = remember(calendarMonthText) { YearMonth.parse(calendarMonthText) }
+    val calendarDate = remember(calendarDateText) { LocalDate.parse(calendarDateText) }
 
     val active = schedules.filter { it.active }
-    val visible = when (filter) {
+    val statusVisible = when (filter) {
         "PAUSADAS" -> schedules.filterNot { it.active }
         "TODAS" -> schedules
         else -> active
     }
+    val personNames = schedules.map { it.personName.ifBlank { "Pessoa não identificada" } }.distinct().sorted()
+    val visible = statusVisible.filter { personFilter.isBlank() || it.personName.ifBlank { "Pessoa não identificada" } == personFilter }
+    val calendarSchedules = schedules.filter { personFilter.isBlank() || it.personName.ifBlank { "Pessoa não identificada" } == personFilter }
+    val calendarIds = calendarSchedules.mapTo(mutableSetOf()) { it.id }
+    val calendarRecords = records.filter { it.scheduleId in calendarIds }
     val recordsBySchedule = records.groupBy { it.scheduleId }
     val now = System.currentTimeMillis()
     val dueSoon = active.count { it.nextDueAt in now..(now + 7 * 24 * 60 * 60 * 1000L) }
+    LaunchedEffect(personFilter, personNames) {
+        if (personFilter.isNotBlank() && personFilter !in personNames) personFilter = ""
+    }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize().widthIn(max = 640.dp),
@@ -79,6 +93,27 @@ import java.util.Locale
                     FilterChip(selected = filter == key, onClick = { filter = key }, label = { Text(label) })
                 }
             }
+        }
+        if (personNames.size > 1) item {
+            Choice("Pessoa", personFilter.ifBlank { "Todas as pessoas" }, listOf("Todas as pessoas") + personNames) {
+                personFilter = if (it == "Todas as pessoas") "" else it
+            }
+        }
+        item {
+            InjectionCalendar(
+                schedules = calendarSchedules,
+                records = calendarRecords,
+                month = calendarMonth,
+                selectedDate = calendarDate,
+                onMonthChange = {
+                    calendarMonthText = it.toString()
+                    calendarDateText = it.atDay(calendarDate.dayOfMonth.coerceAtMost(it.lengthOfMonth())).toString()
+                },
+                onDateChange = { calendarDateText = it.toString() },
+                onRecord = { logging = it },
+                onEditSchedule = { editing = it },
+                onEditRecord = { schedule, record -> editingRecord = schedule to record }
+            )
         }
         if (visible.isEmpty()) item {
             Surface(color = MaterialTheme.colorScheme.surface, shape = RoundedCornerShape(18.dp),
@@ -178,6 +213,8 @@ import java.util.Locale
             Row(verticalAlignment = Alignment.Top) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                     Text(schedule.name, style = MaterialTheme.typography.titleMedium)
+                    Text(schedule.personName.ifBlank { "Pessoa não identificada" }, style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary)
                     if (schedule.medication.isNotBlank()) Text(schedule.medication, style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
