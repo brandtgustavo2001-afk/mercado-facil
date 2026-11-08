@@ -67,7 +67,8 @@ data class InjectionSchedule(
     val active: Boolean = true,
     val reminderEnabled: Boolean = true,
     val createdAt: Long = System.currentTimeMillis(),
-    val updatedAt: Long = System.currentTimeMillis()
+    val updatedAt: Long = System.currentTimeMillis(),
+    val personName: String = ""
 )
 @Entity(
     tableName = "injection_records",
@@ -135,7 +136,7 @@ interface ShoppingDao {
     @Query("UPDATE sync_operations SET status = :status, error = :error, retryCount = retryCount + 1 WHERE operationId = :id") suspend fun failed(id: String, status: String, error: String)
     @Query("SELECT COUNT(*) FROM sync_operations WHERE entityId = :id") suspend fun queued(id: String): Int
 }
-@Database(entities = [ShoppingList::class, ShoppingItem::class, Category::class, SyncOperation::class, PurchaseHistory::class, InjectionSchedule::class, InjectionRecord::class], version = 4, exportSchema = true)
+@Database(entities = [ShoppingList::class, ShoppingItem::class, Category::class, SyncOperation::class, PurchaseHistory::class, InjectionSchedule::class, InjectionRecord::class], version = 5, exportSchema = true)
 abstract class MercadoDatabase : RoomDatabase() { abstract fun dao(): ShoppingDao }
 
 val defaultCategories = listOf("Açougue", "Hortifruti", "Padaria", "Laticínios", "Bebidas", "Mercearia", "Congelados", "Limpeza", "Higiene pessoal", "Pet Shop", "Farmácia", "Outros")

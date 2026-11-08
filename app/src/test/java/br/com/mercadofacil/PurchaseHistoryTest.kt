@@ -9,6 +9,8 @@ import br.com.mercadofacil.database.MercadoDatabase
 import br.com.mercadofacil.database.MIGRATION_1_2
 import br.com.mercadofacil.database.MIGRATION_2_3
 import br.com.mercadofacil.database.MIGRATION_3_4
+import br.com.mercadofacil.database.MIGRATION_4_5
+import br.com.mercadofacil.database.InjectionSchedule
 import br.com.mercadofacil.database.ShoppingItem
 import br.com.mercadofacil.database.ShoppingList
 import br.com.mercadofacil.backup.Backup
@@ -129,11 +131,14 @@ class PurchaseHistoryTest {
             legacy.version = 1
         } finally { legacy.close() }
 
-        val db = Room.databaseBuilder(context, MercadoDatabase::class.java, filename).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4).build()
+        val db = Room.databaseBuilder(context, MercadoDatabase::class.java, filename).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5).build()
         try {
             assertEquals("Lista antiga", db.dao().list("legacy-list")!!.name)
             assertTrue(db.dao().item("legacy-item")!!.purchased)
             assertTrue(db.dao().purchases().first().isEmpty())
+            val schedule = InjectionSchedule(name = "Rotina", personName = "Maria", nextDueAt = 300L)
+            db.dao().saveInjection(schedule)
+            assertEquals("Maria", db.dao().injectionSchedule(schedule.id)?.personName)
             val purchase = ShoppingRepository(db).completePurchase("legacy-list", 200)
             assertNotNull(purchase)
             assertEquals("Arroz", JSONArray(purchase!!.itemsJson).getJSONObject(0).getString("name"))

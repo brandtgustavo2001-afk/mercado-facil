@@ -28,6 +28,7 @@ import java.time.ZoneOffset
     onSave: (InjectionSchedule) -> Unit
 ) {
     var name by remember(initial?.id) { mutableStateOf(initial?.name.orEmpty()) }
+    var personName by remember(initial?.id) { mutableStateOf(initial?.personName?.ifBlank { "Eu" } ?: "Eu") }
     var medication by remember(initial?.id) { mutableStateOf(initial?.medication.orEmpty()) }
     var dose by remember(initial?.id) { mutableStateOf(initial?.dose.orEmpty()) }
     var route by remember(initial?.id) { mutableStateOf(initial?.route.orEmpty()) }
@@ -46,8 +47,12 @@ import java.time.ZoneOffset
         text = {
             Column(Modifier.fillMaxWidth().heightIn(max = 540.dp).verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(personName, { personName = it.take(120); error = null }, label = { Text("Pessoa *") },
+                    modifier = Modifier.fillMaxWidth(), singleLine = true)
                 OutlinedTextField(name, { name = it.take(120); error = null }, label = { Text("Nome da rotina *") },
                     modifier = Modifier.fillMaxWidth(), singleLine = true)
+                Text("Cadastre uma rotina para cada pessoa e aplicação. Cada rotina tem intervalo e lembrete próprios; você pode editar os nomes depois.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 OutlinedTextField(medication, { medication = it.take(120) }, label = { Text("Medicamento") },
                     modifier = Modifier.fillMaxWidth(), singleLine = true)
                 OutlinedTextField(dose, { dose = it.take(80) }, label = { Text("Dose, como prescrita") },
@@ -87,11 +92,12 @@ import java.time.ZoneOffset
         },
         confirmButton = {
             TextButton(onClick = {
+                if (personName.isBlank()) { error = "Informe o nome da pessoa."; return@TextButton }
                 if (name.isBlank()) { error = "Informe um nome para esta rotina."; return@TextButton }
                 val parsed = interval.toIntOrNull()
                 if (parsed == null || parsed !in 1..8760) { error = "Use um intervalo entre 1 e 8.760."; return@TextButton }
                 val result = (initial ?: InjectionSchedule(name = name.trim(), nextDueAt = nextDueAt)).copy(
-                    name = name.trim(), medication = medication.trim(), dose = dose.trim(), route = route.trim(),
+                    name = name.trim(), personName = personName.trim(), medication = medication.trim(), dose = dose.trim(), route = route.trim(),
                     responsible = responsible.trim(), intervalValue = parsed, intervalUnit = unit,
                     nextDueAt = nextDueAt, reminderEnabled = reminder, notes = notes.trim()
                 )
