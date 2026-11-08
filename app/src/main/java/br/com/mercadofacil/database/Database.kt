@@ -51,6 +51,38 @@ data class PurchaseHistory(
     val totalCents: Long,
     val itemCount: Int
 )
+/** A locally stored recurring injection reminder. It is intentionally not part of shopping-list sync. */
+@Entity(tableName = "injection_schedules")
+data class InjectionSchedule(
+    @PrimaryKey val id: String = UUID.randomUUID().toString(),
+    val name: String,
+    val medication: String = "",
+    val dose: String = "",
+    val route: String = "",
+    val intervalValue: Int = 1,
+    val intervalUnit: String = "DAYS",
+    val nextDueAt: Long,
+    val responsible: String = "",
+    val notes: String = "",
+    val active: Boolean = true,
+    val reminderEnabled: Boolean = true,
+    val createdAt: Long = System.currentTimeMillis(),
+    val updatedAt: Long = System.currentTimeMillis()
+)
+@Entity(
+    tableName = "injection_records",
+    foreignKeys = [ForeignKey(entity = InjectionSchedule::class, parentColumns = ["id"], childColumns = ["scheduleId"], onDelete = ForeignKey.CASCADE)],
+    indices = [Index("scheduleId")]
+)
+data class InjectionRecord(
+    @PrimaryKey val id: String = UUID.randomUUID().toString(),
+    val scheduleId: String,
+    val scheduledForAt: Long,
+    val administeredAt: Long,
+    val dose: String = "",
+    val applicationSite: String = "",
+    val notes: String = ""
+)
 @Entity(tableName = "categories")
 data class Category(@PrimaryKey val name: String)
 @Entity(tableName = "sync_operations", indices = [Index("entityId")])
@@ -75,6 +107,14 @@ interface ShoppingDao {
     @Query("SELECT * FROM purchase_history WHERE id = :id") suspend fun purchase(id: String): PurchaseHistory?
     @Upsert suspend fun save(purchase: PurchaseHistory)
     @Query("DELETE FROM purchase_history WHERE id NOT IN (SELECT id FROM purchase_history ORDER BY createdAt DESC, id DESC LIMIT 10)") suspend fun trimPurchaseHistory()
+    @Query("SELECT * FROM injection_schedules ORDER BY active DESC, nextDueAt ASC") fun injectionSchedules(): Flow<List<InjectionSchedule>>
+    @Query("SELECT * FROM injection_records ORDER BY administeredAt DESC") fun injectionRecords(): Flow<List<InjectionRecord>>
+    @Query("SELECT * FROM injection_schedules WHERE id = :id") suspend fun injectionSchedule(id: String): InjectionSchedule?
+    @Query("SELECT * FROM injection_records WHERE scheduleId = :scheduleId ORDER BY administeredAt ASC") suspend fun injectionRecordsFor(scheduleId: String): List<InjectionRecord>
+    @Upsert suspend fun saveInjection(schedule: InjectionSchedule)
+    @Upsert suspend fun saveInjectionRecord(record: InjectionRecord)
+    @Query("DELETE FROM injection_schedules WHERE id = :id") suspend fun deleteInjectionSchedule(id: String)
+    @Query("DELETE FROM injection_records WHERE id = :id") suspend fun deleteInjectionRecord(id: String)
     @Query("SELECT * FROM shopping_items WHERE listId = :listId AND purchased = 1 AND deleted = 0 ORDER BY position, name") suspend fun selectedItems(listId: String): List<ShoppingItem>
     @Query("SELECT * FROM categories ORDER BY name") fun categories(): Flow<List<Category>>
     @Query("SELECT * FROM shopping_lists") suspend fun allLists(): List<ShoppingList>
@@ -95,7 +135,7 @@ interface ShoppingDao {
     @Query("UPDATE sync_operations SET status = :status, error = :error, retryCount = retryCount + 1 WHERE operationId = :id") suspend fun failed(id: String, status: String, error: String)
     @Query("SELECT COUNT(*) FROM sync_operations WHERE entityId = :id") suspend fun queued(id: String): Int
 }
-@Database(entities = [ShoppingList::class, ShoppingItem::class, Category::class, SyncOperation::class, PurchaseHistory::class], version = 3, exportSchema = true)
+@Database(entities = [ShoppingList::class, ShoppingItem::class, Category::class, SyncOperation::class, PurchaseHistory::class, InjectionSchedule::class, InjectionRecord::class], version = 4, exportSchema = true)
 abstract class MercadoDatabase : RoomDatabase() { abstract fun dao(): ShoppingDao }
 
 val defaultCategories = listOf("Açougue", "Hortifruti", "Padaria", "Laticínios", "Bebidas", "Mercearia", "Congelados", "Limpeza", "Higiene pessoal", "Pet Shop", "Farmácia", "Outros")

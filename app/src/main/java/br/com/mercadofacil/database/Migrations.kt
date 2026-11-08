@@ -26,3 +26,39 @@ val MIGRATION_2_3 = object : Migration(2, 3) {
         db.execSQL("ALTER TABLE shopping_items ADD COLUMN photoDirty INTEGER NOT NULL DEFAULT 0")
     }
 }
+
+val MIGRATION_3_4 = object : Migration(3, 4) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS `injection_schedules` (
+                `id` TEXT NOT NULL PRIMARY KEY,
+                `name` TEXT NOT NULL,
+                `medication` TEXT NOT NULL,
+                `dose` TEXT NOT NULL,
+                `route` TEXT NOT NULL,
+                `intervalValue` INTEGER NOT NULL,
+                `intervalUnit` TEXT NOT NULL,
+                `nextDueAt` INTEGER NOT NULL,
+                `responsible` TEXT NOT NULL,
+                `notes` TEXT NOT NULL,
+                `active` INTEGER NOT NULL,
+                `reminderEnabled` INTEGER NOT NULL,
+                `createdAt` INTEGER NOT NULL,
+                `updatedAt` INTEGER NOT NULL
+            )
+        """.trimIndent())
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS `injection_records` (
+                `id` TEXT NOT NULL PRIMARY KEY,
+                `scheduleId` TEXT NOT NULL,
+                `scheduledForAt` INTEGER NOT NULL,
+                `administeredAt` INTEGER NOT NULL,
+                `dose` TEXT NOT NULL,
+                `applicationSite` TEXT NOT NULL,
+                `notes` TEXT NOT NULL,
+                FOREIGN KEY(`scheduleId`) REFERENCES `injection_schedules`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE
+            )
+        """.trimIndent())
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_injection_records_scheduleId` ON `injection_records` (`scheduleId`)")
+    }
+}
