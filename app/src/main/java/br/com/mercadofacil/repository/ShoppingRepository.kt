@@ -19,8 +19,13 @@ class ShoppingRepository(val db: MercadoDatabase) {
     suspend fun save(list: ShoppingList) = db.withTransaction {
         require(list.name.isNotBlank() && list.name.length <= 120)
         require(list.budgetCents >= 0)
-        val next = list.copy(name = list.name.trim(), updatedAt = System.currentTimeMillis())
-        val before = dao.list(next.id)
+        val before = dao.list(list.id)
+        val role = when {
+            !list.shared -> null
+            before?.shared != true -> "owner"
+            else -> list.memberRole ?: before.memberRole
+        }
+        val next = list.copy(name = list.name.trim(), updatedAt = System.currentTimeMillis(), memberRole = role)
         dao.save(next)
         if (next.shared) dao.enqueue(SyncOperation(entityId = next.id, listId = next.id, entityType = "list", payload = mutation(next.json(), before?.takeIf { it.shared }?.json()), baseVersion = next.version))
     }
@@ -36,6 +41,110 @@ class ShoppingRepository(val db: MercadoDatabase) {
         val list = requireNotNull(dao.list(item.listId))
         dao.save(list.copy(updatedAt = next.updatedAt))
         if (list.shared) dao.enqueue(SyncOperation(entityId = next.id, listId = next.listId, entityType = "item", payload = mutation(next.json(), before?.json()), baseVersion = next.version))
+    }
+    suspend fun saveInjection(schedule: InjectionSchedule): InjectionSchedule = db.withTransaction {
+        require(schedule.name.isNotBlank() && schedule.name.length <= 120)
+        require(schedule.personName.length <= 120 && schedule.medication.length <= 120 && schedule.dose.length <= 80)
+        require(schedule.route.length <= 120 && schedule.responsible.length <= 120 && schedule.notes.length <= 2000)
+        require(schedule.intervalValue in 1..8760 && schedule.intervalUnit in setOf("HOURS", "DAYS", "WEEKS", "MONTHS"))
+        val before = dao.injectionSchedule(schedule.id)
+        val now = System.currentTimeMillis()
+        val next = schedule.copy(name = schedule.name.trim(), personName = schedule.personName.trim(), updatedAt = now)
+
+        if (before?.sharedListId != null && before.sharedListId != next.sharedListId) {
+            val history = dao.injectionRecordsFor(before.id)
+            val removed = before.copy(active = false, deleted = true, updatedAt = now)
+            dao.saveInjection(removed)
+            enqueueInjectionSchedule(removed, before, requireNotNull(before.sharedListId))
+            history.forEach { record ->
+                val tombstone = record.copy(deleted = true, updatedAt = now)
+                dao.saveInjectionRecord(tombstone)
+            }
+            val replacement = next.copy(id = UUID.randomUUID().toString(), version = 0, deleted = false)
+            dao.saveInjection(replacement)
+            val replacements = history.map { it.copy(
+                id = UUID.randomUUID().toString(), scheduleId = replacement.id, version = 0, deleted = false,
+                updatedAt = now
+            ) }
+            replacements.forEach(dao::saveInjectionRecord)
+            replacement.sharedListId?.let { listId ->
+                enqueueInjectionSchedule(replacement, null, listId)
+                replacements.forEach { enqueueInjectionRecord(it, null, listId) }
+            }
+            return@withTransaction replacement
+        }
+
+        dao.saveInjection(next)
+        next.sharedListId?.let { listId ->
+            val sameSharedListBefore = before?.takeIf { it.sharedListId == listId && !it.deleted }
+            enqueueInjectionSchedule(next, sameSharedListBefore, listId)
+            // A private routine can have history before the owner chooses to share it.
+            if (before?.sharedListId == null && before != null) {
+                dao.injectionRecordsFor(next.id).forEach { enqueueInjectionRecord(it, null, listId) }
+            }
+        }
+        next
+    }
+
+    suspend fun deleteInjection(schedule: InjectionSchedule) = db.withTransaction {
+        val current = dao.injectionSchedule(schedule.id) ?: return@withTransaction
+        if (current.sharedListId == null) {
+            dao.deleteInjectionSchedule(current.id)
+        } else {
+            val tombstone = current.copy(active = false, deleted = true, updatedAt = System.currentTimeMillis())
+            dao.saveInjection(tombstone)
+            dao.injectionRecordsFor(current.id).forEach { dao.saveInjectionRecord(it.copy(deleted = true, updatedAt = tombstone.updatedAt)) }
+            enqueueInjectionSchedule(tombstone, current, current.sharedListId)
+        }
+    }
+
+    /** Changes only this installation's notification preference, never a shared payload. */
+    suspend fun setInjectionReminder(id: String, enabled: Boolean): InjectionSchedule = db.withTransaction {
+        val current = requireNotNull(dao.injectionSchedule(id)) { "Rotina não encontrada" }
+        val updated = current.copy(reminderEnabled = enabled)
+        dao.saveInjection(updated)
+        updated
+    }
+
+    suspend fun saveInjectionAndRecord(schedule: InjectionSchedule, record: InjectionRecord) = db.withTransaction {
+        require(record.scheduleId == schedule.id)
+        saveInjection(schedule)
+        saveInjectionRecord(record)
+    }
+
+    suspend fun saveInjectionRecord(record: InjectionRecord) = db.withTransaction {
+        val schedule = requireNotNull(dao.injectionSchedule(record.scheduleId)) { "Rotina não encontrada" }
+        require(!schedule.deleted)
+        val before = dao.injectionRecord(record.id)
+        val next = record.copy(updatedAt = System.currentTimeMillis())
+        dao.saveInjectionRecord(next)
+        schedule.sharedListId?.let { enqueueInjectionRecord(next, before, it) }
+    }
+
+    suspend fun saveInjectionAndDeleteRecord(schedule: InjectionSchedule, record: InjectionRecord) = db.withTransaction {
+        require(record.scheduleId == schedule.id)
+        saveInjection(schedule)
+        val current = requireNotNull(dao.injectionRecord(record.id)) { "Este registro não está mais disponível." }
+        if (schedule.sharedListId == null) dao.deleteInjectionRecord(record.id)
+        else {
+            val tombstone = current.copy(deleted = true, updatedAt = System.currentTimeMillis())
+            dao.saveInjectionRecord(tombstone)
+            enqueueInjectionRecord(tombstone, current, schedule.sharedListId)
+        }
+    }
+
+    private suspend fun enqueueInjectionSchedule(after: InjectionSchedule, before: InjectionSchedule?, listId: String) {
+        val payload = mutation(after.syncJson(), before?.syncJson())
+        if (JSONObject(payload).getJSONObject("data").length() == 0) return
+        dao.enqueue(SyncOperation(entityId = after.id, listId = listId, entityType = "injection_schedule",
+            payload = payload, baseVersion = before?.version ?: 0))
+    }
+
+    private suspend fun enqueueInjectionRecord(after: InjectionRecord, before: InjectionRecord?, listId: String) {
+        val payload = mutation(after.syncJson(), before?.syncJson())
+        if (JSONObject(payload).getJSONObject("data").length() == 0) return
+        dao.enqueue(SyncOperation(entityId = after.id, listId = listId, entityType = "injection_record",
+            payload = payload, baseVersion = before?.version ?: 0))
     }
     /** Adds all recognized products or none, including their pending shared-list operations. */
     suspend fun saveAll(items: List<ShoppingItem>) = db.withTransaction {
@@ -108,3 +217,12 @@ fun mutation(after: JSONObject, before: JSONObject?): String {
 }
 fun ShoppingList.json() = JSONObject().put("id", id).put("name", name).put("description", description).put("market", market).put("budget_cents", budgetCents).put("status", status).put("deleted", deleted)
 fun ShoppingItem.json() = JSONObject().put("id", id).put("list_id", listId).put("name", name).put("quantity", quantity).put("unit", unit).put("estimated_cents", estimatedCents).put("actual_cents", actualCents ?: JSONObject.NULL).put("category", category).put("brand", brand).put("notes", notes).put("purchased", purchased).put("deleted", deleted)
+fun InjectionSchedule.syncJson() = JSONObject()
+    .put("id", id).put("name", name).put("person_name", personName).put("medication", medication)
+    .put("dose", dose).put("route", route).put("interval_value", intervalValue).put("interval_unit", intervalUnit)
+    .put("next_due_at", nextDueAt).put("responsible", responsible).put("notes", notes)
+    .put("active", active).put("deleted", deleted)
+fun InjectionRecord.syncJson() = JSONObject()
+    .put("id", id).put("schedule_id", scheduleId).put("scheduled_for_at", scheduledForAt)
+    .put("administered_at", administeredAt).put("dose", dose).put("application_site", applicationSite)
+    .put("notes", notes).put("deleted", deleted)

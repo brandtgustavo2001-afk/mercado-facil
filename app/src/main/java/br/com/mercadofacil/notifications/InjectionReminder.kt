@@ -45,6 +45,12 @@ class InjectionReminderWorker(context: android.content.Context, params: WorkerPa
         val dueAt = inputData.getLong("due_at", -1L)
         val schedule = app.repository.dao.injectionSchedule(scheduleId) ?: return Result.success()
         if (!schedule.active || !schedule.reminderEnabled || schedule.nextDueAt != dueAt) return Result.success()
+        // A shared routine stops notifying this installation after its list is
+        // removed locally (for example, when the server revokes membership).
+        schedule.sharedListId?.let { listId ->
+            val list = app.repository.dao.list(listId)
+            if (list?.shared != true || list.deleted) return Result.success()
+        }
         if (!app.settings.get().notifications) return Result.success()
         if (System.currentTimeMillis() < dueAt) return Result.retry()
         if (Build.VERSION.SDK_INT >= 33 && app.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return Result.success()

@@ -15,6 +15,8 @@ data class ShoppingList(
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis(),
     val shared: Boolean = false,
+    /** Membership role for this installation; never trusted for server authorization. */
+    val memberRole: String? = null,
     val version: Long = 0,
     val deleted: Boolean = false
 )
@@ -51,8 +53,8 @@ data class PurchaseHistory(
     val totalCents: Long,
     val itemCount: Int
 )
-/** A locally stored recurring injection reminder. It is intentionally not part of shopping-list sync. */
-@Entity(tableName = "injection_schedules")
+/** A recurring injection routine. Shared only when explicitly linked to a shopping list. */
+@Entity(tableName = "injection_schedules", indices = [Index("sharedListId")])
 data class InjectionSchedule(
     @PrimaryKey val id: String = UUID.randomUUID().toString(),
     val name: String,
@@ -68,7 +70,10 @@ data class InjectionSchedule(
     val reminderEnabled: Boolean = true,
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis(),
-    val personName: String = ""
+    val personName: String = "",
+    val sharedListId: String? = null,
+    @ColumnInfo(defaultValue = "0") val version: Long = 0,
+    @ColumnInfo(defaultValue = "0") val deleted: Boolean = false
 )
 @Entity(
     tableName = "injection_records",
@@ -82,7 +87,10 @@ data class InjectionRecord(
     val administeredAt: Long,
     val dose: String = "",
     val applicationSite: String = "",
-    val notes: String = ""
+    val notes: String = "",
+    @ColumnInfo(defaultValue = "0") val updatedAt: Long = System.currentTimeMillis(),
+    @ColumnInfo(defaultValue = "0") val version: Long = 0,
+    @ColumnInfo(defaultValue = "0") val deleted: Boolean = false
 )
 @Entity(tableName = "categories")
 data class Category(@PrimaryKey val name: String)
@@ -108,10 +116,11 @@ interface ShoppingDao {
     @Query("SELECT * FROM purchase_history WHERE id = :id") suspend fun purchase(id: String): PurchaseHistory?
     @Upsert suspend fun save(purchase: PurchaseHistory)
     @Query("DELETE FROM purchase_history WHERE id NOT IN (SELECT id FROM purchase_history ORDER BY createdAt DESC, id DESC LIMIT 10)") suspend fun trimPurchaseHistory()
-    @Query("SELECT * FROM injection_schedules ORDER BY active DESC, nextDueAt ASC") fun injectionSchedules(): Flow<List<InjectionSchedule>>
-    @Query("SELECT * FROM injection_records ORDER BY administeredAt DESC") fun injectionRecords(): Flow<List<InjectionRecord>>
+    @Query("SELECT * FROM injection_schedules WHERE deleted = 0 AND (sharedListId IS NULL OR sharedListId IN (SELECT id FROM shopping_lists WHERE shared = 1 AND deleted = 0)) ORDER BY active DESC, nextDueAt ASC") fun injectionSchedules(): Flow<List<InjectionSchedule>>
+    @Query("SELECT r.* FROM injection_records r JOIN injection_schedules s ON s.id = r.scheduleId WHERE r.deleted = 0 AND s.deleted = 0 AND (s.sharedListId IS NULL OR s.sharedListId IN (SELECT id FROM shopping_lists WHERE shared = 1 AND deleted = 0)) ORDER BY r.administeredAt DESC") fun injectionRecords(): Flow<List<InjectionRecord>>
     @Query("SELECT * FROM injection_schedules WHERE id = :id") suspend fun injectionSchedule(id: String): InjectionSchedule?
-    @Query("SELECT * FROM injection_records WHERE scheduleId = :scheduleId ORDER BY administeredAt ASC") suspend fun injectionRecordsFor(scheduleId: String): List<InjectionRecord>
+    @Query("SELECT * FROM injection_records WHERE scheduleId = :scheduleId AND deleted = 0 ORDER BY administeredAt ASC") suspend fun injectionRecordsFor(scheduleId: String): List<InjectionRecord>
+    @Query("SELECT * FROM injection_records WHERE id = :id") suspend fun injectionRecord(id: String): InjectionRecord?
     @Upsert suspend fun saveInjection(schedule: InjectionSchedule)
     @Upsert suspend fun saveInjectionRecord(record: InjectionRecord)
     @Query("DELETE FROM injection_schedules WHERE id = :id") suspend fun deleteInjectionSchedule(id: String)
@@ -136,7 +145,7 @@ interface ShoppingDao {
     @Query("UPDATE sync_operations SET status = :status, error = :error, retryCount = retryCount + 1 WHERE operationId = :id") suspend fun failed(id: String, status: String, error: String)
     @Query("SELECT COUNT(*) FROM sync_operations WHERE entityId = :id") suspend fun queued(id: String): Int
 }
-@Database(entities = [ShoppingList::class, ShoppingItem::class, Category::class, SyncOperation::class, PurchaseHistory::class, InjectionSchedule::class, InjectionRecord::class], version = 5, exportSchema = true)
+@Database(entities = [ShoppingList::class, ShoppingItem::class, Category::class, SyncOperation::class, PurchaseHistory::class, InjectionSchedule::class, InjectionRecord::class], version = 6, exportSchema = true)
 abstract class MercadoDatabase : RoomDatabase() { abstract fun dao(): ShoppingDao }
 
 val defaultCategories = listOf("Açougue", "Hortifruti", "Padaria", "Laticínios", "Bebidas", "Mercearia", "Congelados", "Limpeza", "Higiene pessoal", "Pet Shop", "Farmácia", "Outros")

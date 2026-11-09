@@ -1,5 +1,7 @@
 # Estado da entrega
 
+- Versão 1.0.26 implementa compartilhamento seletivo de rotinas e histórico de injeções por lista Supabase, com permissões de proprietário/editor/leitor e lembretes locais por aparelho. Rotinas antigas permanecem privadas até serem vinculadas. A migração `202611080001_shared_injections.sql` ainda precisa ser aplicada ao projeto Supabase configurado antes da publicação do APK.
+
 Este projeto é uma primeira implementação funcional, **não a conclusão integral dos dois briefings**.
 
 ## Verificado no ambiente local

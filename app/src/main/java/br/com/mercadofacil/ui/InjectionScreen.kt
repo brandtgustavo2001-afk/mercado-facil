@@ -30,6 +30,12 @@ import java.util.Locale
 @Composable fun InjectionScreen(vm: MainViewModel) {
     val schedules by vm.injectionSchedules.collectAsStateWithLifecycle()
     val records by vm.injectionRecords.collectAsStateWithLifecycle()
+    val lists by vm.lists.collectAsStateWithLifecycle()
+    val shareTargets = lists.filter { it.shared && !it.deleted && (it.memberRole == "owner" || it.memberRole == "editor") }
+    fun canEdit(schedule: InjectionSchedule): Boolean = schedule.sharedListId?.let { id ->
+        val role = lists.firstOrNull { it.id == id && !it.deleted }?.memberRole
+        role == "owner" || role == "editor"
+    } ?: true
     var filter by rememberSaveable { mutableStateOf("ATIVAS") }
     var personFilter by rememberSaveable { mutableStateOf("") }
     var adding by rememberSaveable { mutableStateOf(false) }
@@ -112,7 +118,8 @@ import java.util.Locale
                 onDateChange = { calendarDateText = it.toString() },
                 onRecord = { logging = it },
                 onEditSchedule = { editing = it },
-                onEditRecord = { schedule, record -> editingRecord = schedule to record }
+                onEditRecord = { schedule, record -> editingRecord = schedule to record },
+                canEdit = ::canEdit
             )
         }
         if (visible.isEmpty()) item {
@@ -132,16 +139,19 @@ import java.util.Locale
             InjectionScheduleCard(
                 schedule = schedule,
                 records = recordsBySchedule[schedule.id].orEmpty().sortedByDescending { it.administeredAt },
+                canEdit = canEdit(schedule),
+                sharedListName = schedule.sharedListId?.let { id -> lists.firstOrNull { it.id == id }?.name },
                 onRecord = { logging = schedule },
                 onEdit = { editing = schedule },
                 onPause = { vm.saveInjection(schedule.copy(active = !schedule.active)) },
+                onToggleReminder = { vm.setInjectionReminder(schedule, it) },
                 onDelete = { deleting = schedule },
                 onEditRecord = { record -> editingRecord = schedule to record },
                 onDeleteRecord = { record -> deletingRecord = schedule to record }
             )
         }
         item {
-            Text("Os registros ficam neste aparelho e não entram na sincronização nem no backup geral. Confira as orientações recebidas do seu profissional de saúde.",
+            Text("Rotinas ligadas a uma lista são sincronizadas com os participantes dela. Rotinas sem lista ficam privadas neste aparelho; notificações são ajustadas separadamente em cada instalação.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 2.dp))
         }
@@ -149,6 +159,7 @@ import java.util.Locale
 
     if (adding || editing != null) InjectionScheduleDialog(
         initial = editing,
+        sharedLists = shareTargets,
         onDismiss = { adding = false; editing = null },
         onSave = { vm.saveInjection(it); adding = false; editing = null }
     )
@@ -167,7 +178,8 @@ import java.util.Locale
     deleting?.let { schedule -> AlertDialog(
         onDismissRequest = { deleting = null },
         title = { Text("Excluir esta rotina?") },
-        text = { Text("A rotina e o histórico de aplicações dela serão removidos deste aparelho.") },
+        text = { Text(if (schedule.sharedListId == null) "A rotina e o histórico de aplicações dela serão removidos deste aparelho."
+            else "A rotina e o histórico serão removidos para todos os participantes da lista compartilhada.") },
         confirmButton = { TextButton(onClick = { vm.deleteInjection(schedule); deleting = null }) { Text("Excluir") } },
         dismissButton = { TextButton(onClick = { deleting = null }) { Text("Cancelar") } }
     ) }
@@ -196,9 +208,12 @@ import java.util.Locale
 @Composable private fun InjectionScheduleCard(
     schedule: InjectionSchedule,
     records: List<InjectionRecord>,
+    canEdit: Boolean,
+    sharedListName: String?,
     onRecord: () -> Unit,
     onEdit: () -> Unit,
     onPause: () -> Unit,
+    onToggleReminder: (Boolean) -> Unit,
     onDelete: () -> Unit,
     onEditRecord: (InjectionRecord) -> Unit,
     onDeleteRecord: (InjectionRecord) -> Unit
@@ -217,6 +232,8 @@ import java.util.Locale
                         color = MaterialTheme.colorScheme.primary)
                     if (schedule.medication.isNotBlank()) Text(schedule.medication, style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    sharedListName?.let { Text("Compartilhada com: $it", style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 }
                 Surface(color = if (!schedule.active) MaterialTheme.colorScheme.surfaceVariant else due.color,
                     contentColor = if (!schedule.active) MaterialTheme.colorScheme.onSurfaceVariant else due.contentColor,
@@ -224,7 +241,7 @@ import java.util.Locale
                     Text(if (schedule.active) due.label else "Pausada", Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
                         style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold)
                 }
-                Box {
+                if (canEdit) Box {
                     IconButton(onClick = { menuOpen = true }) { Icon(Icons.Outlined.MoreVert, "Mais opções para ${schedule.name}") }
                     DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                         DropdownMenuItem(text = { Text("Editar") }, leadingIcon = { Icon(Icons.Outlined.Edit, null) },
@@ -244,6 +261,14 @@ import java.util.Locale
                     Text(formatInjectionDateTime(schedule.nextDueAt), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
                 }
             }
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Notificação neste aparelho", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium)
+                    Text("Sua preferência não altera a dos outros participantes.", style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Switch(checked = schedule.reminderEnabled, onCheckedChange = onToggleReminder)
+            }
             Text(buildString {
                 if (schedule.dose.isNotBlank()) append("Dose: ${schedule.dose}  ·  ")
                 append(injectionIntervalLabel(schedule.intervalValue, schedule.intervalUnit))
@@ -253,12 +278,14 @@ import java.util.Locale
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             if (schedule.notes.isNotBlank()) Text(schedule.notes, style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilledTonalButton(onClick = onRecord, enabled = schedule.active, modifier = Modifier.weight(1f)) {
-                    Icon(Icons.Outlined.CheckCircle, null, Modifier.size(18.dp)); Spacer(Modifier.width(7.dp)); Text("Registrar")
-                }
-                OutlinedButton(onClick = onEdit, modifier = Modifier.weight(1f)) {
-                    Icon(Icons.Outlined.Edit, null, Modifier.size(18.dp)); Spacer(Modifier.width(7.dp)); Text("Editar")
+            if (canEdit) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilledTonalButton(onClick = onRecord, enabled = schedule.active, modifier = Modifier.weight(1f)) {
+                        Icon(Icons.Outlined.CheckCircle, null, Modifier.size(18.dp)); Spacer(Modifier.width(7.dp)); Text("Registrar")
+                    }
+                    OutlinedButton(onClick = onEdit, modifier = Modifier.weight(1f)) {
+                        Icon(Icons.Outlined.Edit, null, Modifier.size(18.dp)); Spacer(Modifier.width(7.dp)); Text("Editar")
+                    }
                 }
             }
             if (records.isNotEmpty()) {
@@ -269,7 +296,7 @@ import java.util.Locale
                     Text(if (showHistory) "Ocultar histórico" else "Histórico (${records.size})")
                 }
                 if (showHistory) records.forEach { record ->
-                    InjectionHistoryRow(record, onEdit = { onEditRecord(record) }, onDelete = { onDeleteRecord(record) })
+                    InjectionHistoryRow(record, canEdit, onEdit = { onEditRecord(record) }, onDelete = { onDeleteRecord(record) })
                 }
             } else Text("Nenhuma aplicação registrada ainda.", style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -277,7 +304,7 @@ import java.util.Locale
     }
 }
 
-@Composable private fun InjectionHistoryRow(record: InjectionRecord, onEdit: () -> Unit, onDelete: () -> Unit) {
+@Composable private fun InjectionHistoryRow(record: InjectionRecord, canEdit: Boolean, onEdit: () -> Unit, onDelete: () -> Unit) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(formatInjectionDateTime(record.administeredAt), style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)
@@ -286,8 +313,10 @@ import java.util.Locale
             if (details.isNotBlank()) Text(details, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             if (record.notes.isNotBlank()) Text(record.notes, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        IconButton(onClick = onEdit) { Icon(Icons.Outlined.Edit, "Editar registro") }
-        IconButton(onClick = onDelete) { Icon(Icons.Outlined.DeleteOutline, "Excluir registro", tint = MaterialTheme.colorScheme.error) }
+        if (canEdit) {
+            IconButton(onClick = onEdit) { Icon(Icons.Outlined.Edit, "Editar registro") }
+            IconButton(onClick = onDelete) { Icon(Icons.Outlined.DeleteOutline, "Excluir registro", tint = MaterialTheme.colorScheme.error) }
+        }
     }
 }
 
