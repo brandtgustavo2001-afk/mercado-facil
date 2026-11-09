@@ -3,6 +3,7 @@ package br.com.mercadofacil
 import android.content.Context
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
+import androidx.work.testing.WorkManagerTestInitHelper
 import br.com.mercadofacil.data.Settings
 import br.com.mercadofacil.database.*
 import br.com.mercadofacil.repository.ShoppingRepository
@@ -15,6 +16,7 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.ResponseBody.Companion.toResponseBody
 import org.json.*
 import org.junit.Assert.*
+import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -24,6 +26,7 @@ import org.robolectric.annotation.Config
 @Config(sdk = [34], manifest = Config.NONE, application = android.app.Application::class)
 class SharedShoppingTest {
     private val context = ApplicationProvider.getApplicationContext<Context>()
+    @Before fun initializeWorkManager() { WorkManagerTestInitHelper.initializeTestWorkManager(context) }
     private fun database() = Room.inMemoryDatabaseBuilder(context, MercadoDatabase::class.java).build()
     private fun engine(repo: ShoppingRepository, server: Server, user: String) = SyncEngine(
         context, repo, Settings(context), OkHttpClient.Builder().addInterceptor(server).build(),
