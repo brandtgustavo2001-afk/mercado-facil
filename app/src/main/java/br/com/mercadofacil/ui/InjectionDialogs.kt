@@ -16,6 +16,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import br.com.mercadofacil.database.InjectionRecord
 import br.com.mercadofacil.database.InjectionSchedule
+import br.com.mercadofacil.database.ShoppingList
 import br.com.mercadofacil.domain.formatInjectionDateTime
 import java.time.Instant
 import java.time.LocalDate
@@ -24,6 +25,7 @@ import java.time.ZoneOffset
 
 @Composable fun InjectionScheduleDialog(
     initial: InjectionSchedule?,
+    sharedLists: List<ShoppingList>,
     onDismiss: () -> Unit,
     onSave: (InjectionSchedule) -> Unit
 ) {
@@ -37,6 +39,8 @@ import java.time.ZoneOffset
     var unit by remember(initial?.id) { mutableStateOf(initial?.intervalUnit ?: "DAYS") }
     var nextDueAt by remember(initial?.id) { mutableLongStateOf(initial?.nextDueAt ?: System.currentTimeMillis() + 24 * 60 * 60 * 1000L) }
     var reminder by remember(initial?.id) { mutableStateOf(initial?.reminderEnabled ?: true) }
+    var sharedListId by remember(initial?.id) { mutableStateOf(initial?.sharedListId) }
+    var sharingMenuOpen by remember { mutableStateOf(false) }
     var notes by remember(initial?.id) { mutableStateOf(initial?.notes.orEmpty()) }
     var error by remember { mutableStateOf<String?>(null) }
 
@@ -52,6 +56,27 @@ import java.time.ZoneOffset
                 OutlinedTextField(name, { name = it.take(120); error = null }, label = { Text("Nome da rotina *") },
                     modifier = Modifier.fillMaxWidth(), singleLine = true)
                 Text("Cadastre uma rotina para cada pessoa e aplicação. Cada rotina tem intervalo e lembrete próprios; você pode editar os nomes depois.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Compartilhar com", style = MaterialTheme.typography.labelMedium)
+                Box {
+                    OutlinedButton(onClick = { sharingMenuOpen = true }, modifier = Modifier.fillMaxWidth()) {
+                        Text(sharedListId?.let { id -> sharedLists.firstOrNull { it.id == id }?.name ?: "Lista compartilhada" }
+                            ?: "Somente neste aparelho")
+                    }
+                    DropdownMenu(expanded = sharingMenuOpen, onDismissRequest = { sharingMenuOpen = false }) {
+                        DropdownMenuItem(text = { Text("Somente neste aparelho") }, onClick = {
+                            sharedListId = null
+                            sharingMenuOpen = false
+                        })
+                        sharedLists.forEach { list ->
+                            DropdownMenuItem(text = { Text(list.name) }, onClick = {
+                                sharedListId = list.id
+                                sharingMenuOpen = false
+                            })
+                        }
+                    }
+                }
+                Text("Todos os participantes desta lista poderão consultar esta rotina e o histórico. Proprietários e editores podem alterá-los; leitores apenas visualizam.",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 OutlinedTextField(medication, { medication = it.take(120) }, label = { Text("Medicamento") },
                     modifier = Modifier.fillMaxWidth(), singleLine = true)
@@ -99,7 +124,7 @@ import java.time.ZoneOffset
                 val result = (initial ?: InjectionSchedule(name = name.trim(), nextDueAt = nextDueAt)).copy(
                     name = name.trim(), personName = personName.trim(), medication = medication.trim(), dose = dose.trim(), route = route.trim(),
                     responsible = responsible.trim(), intervalValue = parsed, intervalUnit = unit,
-                    nextDueAt = nextDueAt, reminderEnabled = reminder, notes = notes.trim()
+                    nextDueAt = nextDueAt, reminderEnabled = reminder, notes = notes.trim(), sharedListId = sharedListId
                 )
                 onSave(result)
             }) { Text("Salvar") }

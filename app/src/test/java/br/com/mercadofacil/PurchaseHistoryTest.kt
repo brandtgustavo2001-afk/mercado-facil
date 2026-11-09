@@ -10,6 +10,7 @@ import br.com.mercadofacil.database.MIGRATION_1_2
 import br.com.mercadofacil.database.MIGRATION_2_3
 import br.com.mercadofacil.database.MIGRATION_3_4
 import br.com.mercadofacil.database.MIGRATION_4_5
+import br.com.mercadofacil.database.MIGRATION_5_6
 import br.com.mercadofacil.database.InjectionSchedule
 import br.com.mercadofacil.database.ShoppingItem
 import br.com.mercadofacil.database.ShoppingList
@@ -131,7 +132,7 @@ class PurchaseHistoryTest {
             legacy.version = 1
         } finally { legacy.close() }
 
-        val db = Room.databaseBuilder(context, MercadoDatabase::class.java, filename).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5).build()
+        val db = Room.databaseBuilder(context, MercadoDatabase::class.java, filename).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6).build()
         try {
             assertEquals("Lista antiga", db.dao().list("legacy-list")!!.name)
             assertTrue(db.dao().item("legacy-item")!!.purchased)

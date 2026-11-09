@@ -22,7 +22,7 @@ A tela inicial é uma lista direta: digite o produto no campo inferior e toque e
 
 Crie listas e produtos sem login e sem conexão. Preços são centavos inteiros; quantidades são decimais exatos, com até três casas. Cada linha é arredondada uma vez em HALF_UP. Há orçamento e projeção, marcação de compras, edição de preço e quantidade, duplicação, arquivo, exclusão confirmada, categorias, busca, sugestões de produtos anteriores, favoritos, histórico de listas, resumo por mês/categoria e temas claro/escuro/automático.
 
-A aba **Injeções** organiza rotinas por pessoa, calendário mensal, próxima data, lembretes locais e histórico editável das aplicações. Cada rotina tem nome e intervalo próprios; os dados ficam no aparelho e não entram na sincronização nem no backup JSON. Os intervalos devem seguir a orientação do profissional de saúde.
+A aba **Injeções** organiza rotinas por pessoa, calendário mensal, próxima data, lembretes locais e histórico editável das aplicações. Cada rotina pode ficar privada ou ser vinculada a uma lista compartilhada; nesse caso, os participantes da lista consultam a rotina e o histórico, e proprietários/editores podem alterá-los. Rotinas existentes permanecem privadas até você escolher uma lista. O lembrete é uma preferência local de cada aparelho. Dados de saúde não são incluídos no backup JSON. Os intervalos devem seguir a orientação do profissional de saúde.
 
 Compartilhamento por texto funciona sem Supabase. Backups JSON e relatórios CSV usam o seletor de arquivos Android. Importar exige confirmação, é transacional, preserva os UUIDs e acrescenta registros ausentes sem substituir dados existentes. Listas importadas são locais. O backup JSON versão 2 cobre listas, itens e as últimas 10 compras; restauração também aceita backups anteriores de versão 1. Configurações e sessões não são exportadas.
 
@@ -32,7 +32,9 @@ Lembretes usam WorkManager e podem sofrer atraso pelo gerenciamento de bateria d
 
 ## Supabase
 
-O APK já inclui a URL e a chave **publishable** do projeto `igehbjnutmhkqfdlrndx`. O esquema foi aplicado e os testes SQL de RPCs/RLS passaram. Para usar, abra **menu (...) → Conta e ajustes → Conta e sincronização**; escolha **Criar conta**, informe nome, e-mail e senha e confirme o e-mail se for solicitado. Depois, entre usando a mesma conta. A conta usada para administrar o painel Supabase pelo GitHub é separada das contas dos usuários do aplicativo. A partir da versão 1.0.6, o aplicativo mostra mensagens mais claras para e-mail não confirmado, senha errada e limitação de cadastros pelo servidor. Se o servidor desativar a inscrição por e-mail ou bloquear o envio por limite de mensagens, isso exige ajuste no Supabase e não pode ser resolvido apenas pelo APK.
+O APK já inclui a URL e a chave **publishable** do projeto `igehbjnutmhkqfdlrndx`. Para usar, abra **menu (...) → Conta e ajustes → Conta e sincronização**; escolha **Criar conta**, informe nome, e-mail e senha e confirme o e-mail se for solicitado. Depois, entre usando a mesma conta. A conta usada para administrar o painel Supabase pelo GitHub é separada das contas dos usuários do aplicativo. A partir da versão 1.0.6, o aplicativo mostra mensagens mais claras para e-mail não confirmado, senha errada e limitação de cadastros pelo servidor. Se o servidor desativar a inscrição por e-mail ou bloquear o envio por limite de mensagens, isso exige ajuste no Supabase e não pode ser resolvido apenas pelo APK.
+
+O compartilhamento de rotinas de saúde requer executar `supabase/migrations/202611080001_shared_injections.sql` no SQL Editor do projeto Supabase existente. Essa migração cria tabelas com RLS de leitura por membro e gravação somente por proprietário/editor; não altera listas nem dados de compras. Até ela ser aplicada, a fila de injeções fica local e pendente, sem bloquear a sincronização das compras.
 
 Não execute a migração inicial novamente nesse projeto. Os passos abaixo são para configurar outro projeto novo.
 
@@ -45,7 +47,7 @@ Não execute a migração inicial novamente nesse projeto. Os passos abaixo são
 
 A UI lê apenas Room. Gravações locais e a fila são transacionais. RPCs usam UUID idempotente, lock por lista, comparação dos campos com os valores de base e auditoria no servidor. Alterações independentes mesclam; campos divergentes ficam em conflito e exigem escolha explícita em Ajustes. Exclusões são tombstones retidos indefinidamente nesta versão, evitando ressurreição por aparelhos antigos.
 
-Em um projeto Supabase de testes, rode `supabase/tests/sync_acceptance.sql` após a migração para testar as RPCs e as políticas RLS. O script insere usuários temporários e faz rollback ao terminar. Os testes passaram no projeto configurado, e a ausência de registros temporários foi verificada.
+Em um projeto Supabase de testes, rode `supabase/tests/sync_acceptance.sql` após a migração inicial e `supabase/tests/injection_sharing_acceptance.sql` após a migração de injeções para testar as RPCs e as políticas RLS. Os scripts usam registros temporários e fazem rollback ao terminar.
 
 Realtime sinaliza alterações e o motor busca os registros autorizados, em páginas, atualizando Room. Há reconexão com backoff e refresh da sessão. A fila também roda pelo WorkManager. O cache compartilhado fica disponível offline; revogação é aplicada quando o cliente consegue consultar o servidor. Acesso remoto é bloqueado imediatamente pelas políticas. A implementação atual reconsulta snapshots e ainda não usa cursor incremental durável: veja STATUS.
 
@@ -81,7 +83,7 @@ Para criar a primeira chave local e compilar um release:
 python tools/build_release.py
 ```
 
-A chave e as senhas ficam **fora do repositório**, em `~/.codex/secrets/mercado-facil`. Faça backup seguro dessa pasta; perder a chave impede atualizar instalações existentes. O script não imprime senhas e reutiliza a chave nas próximas execuções. O arquivo `tools/build_release.py` gera a versão 1.0.25 por padrão; use `--version` e `--code` para selecionar outra versão.
+A chave e as senhas ficam **fora do repositório**, em `~/.codex/secrets/mercado-facil`. Faça backup seguro dessa pasta; perder a chave impede atualizar instalações existentes. O script não imprime senhas e reutiliza a chave nas próximas execuções. O arquivo `tools/build_release.py` gera a versão 1.0.26 por padrão; use `--version` e `--code` para selecionar outra versão.
 
 Configure os quatro Secrets no GitHub → Settings → Secrets and variables → Actions:
 

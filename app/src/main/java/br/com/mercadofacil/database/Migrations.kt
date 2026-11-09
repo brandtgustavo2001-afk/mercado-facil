@@ -68,3 +68,17 @@ val MIGRATION_4_5 = object : Migration(4, 5) {
         db.execSQL("ALTER TABLE injection_schedules ADD COLUMN personName TEXT NOT NULL DEFAULT ''")
     }
 }
+
+/** Adds opt-in list sharing and tombstones while keeping reminder preferences local. */
+val MIGRATION_5_6 = object : Migration(5, 6) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE shopping_lists ADD COLUMN memberRole TEXT")
+        db.execSQL("ALTER TABLE injection_schedules ADD COLUMN sharedListId TEXT")
+        db.execSQL("ALTER TABLE injection_schedules ADD COLUMN version INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE injection_schedules ADD COLUMN deleted INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE injection_records ADD COLUMN updatedAt INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE injection_records ADD COLUMN version INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE injection_records ADD COLUMN deleted INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_injection_schedules_sharedListId` ON `injection_schedules` (`sharedListId`)")
+    }
+}

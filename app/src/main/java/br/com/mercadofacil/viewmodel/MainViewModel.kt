@@ -2,7 +2,6 @@ package br.com.mercadofacil.viewmodel
 
 import android.app.Application
 import androidx.lifecycle.*
-import androidx.room.withTransaction
 import br.com.mercadofacil.MercadoApp
 import br.com.mercadofacil.database.*
 import br.com.mercadofacil.domain.nextInjectionDueAt
@@ -55,13 +54,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun saveInjection(schedule: InjectionSchedule) = run {
         require(schedule.name.isNotBlank()) { "Informe o nome desta aplicação." }
         nextInjectionDueAt(schedule.nextDueAt, schedule.intervalValue, schedule.intervalUnit)
-        val saved = schedule.copy(updatedAt = System.currentTimeMillis())
-        repository.dao.saveInjection(saved)
+        val saved = repository.saveInjection(schedule)
+        if (saved.id != schedule.id) InjectionReminderScheduler.cancel(app, schedule.id)
+        refreshInjectionReminder(saved)
+        scheduleSync()
+    }
+    fun setInjectionReminder(schedule: InjectionSchedule, enabled: Boolean) = run {
+        val saved = repository.setInjectionReminder(schedule.id, enabled)
         refreshInjectionReminder(saved)
     }
     fun deleteInjection(schedule: InjectionSchedule) = run {
-        repository.dao.deleteInjectionSchedule(schedule.id)
+        repository.deleteInjection(schedule)
         InjectionReminderScheduler.cancel(app, schedule.id)
+        scheduleSync()
     }
     fun recordInjection(schedule: InjectionSchedule, record: InjectionRecord) = run {
         require(record.scheduleId == schedule.id) { "O registro não corresponde a esta aplicação." }
@@ -69,11 +74,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             nextDueAt = nextInjectionDueAt(record.administeredAt, schedule.intervalValue, schedule.intervalUnit),
             updatedAt = System.currentTimeMillis()
         )
-        repository.db.withTransaction {
-            repository.dao.saveInjectionRecord(record)
-            repository.dao.saveInjection(updated)
-        }
+        repository.saveInjectionAndRecord(updated, record)
         refreshInjectionReminder(updated)
+        scheduleSync()
     }
     fun updateInjectionRecord(schedule: InjectionSchedule, record: InjectionRecord) = run {
         val records = repository.dao.injectionRecordsFor(schedule.id)
@@ -86,11 +89,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             nextDueAt = nextInjectionDueAt(latestAfterEdit.administeredAt, schedule.intervalValue, schedule.intervalUnit),
             updatedAt = System.currentTimeMillis()
         ) else schedule
-        repository.db.withTransaction {
-            repository.dao.saveInjectionRecord(record)
-            if (changesNextDue) repository.dao.saveInjection(updated)
-        }
+        repository.saveInjectionAndRecord(if (changesNextDue) updated else schedule, record)
         if (changesNextDue) refreshInjectionReminder(updated)
+        scheduleSync()
     }
     fun deleteInjectionRecord(schedule: InjectionSchedule, record: InjectionRecord) = run {
         val records = repository.dao.injectionRecordsFor(schedule.id)
@@ -101,11 +102,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             nextDueAt = previous?.let { nextInjectionDueAt(it.administeredAt, schedule.intervalValue, schedule.intervalUnit) } ?: record.scheduledForAt,
             updatedAt = System.currentTimeMillis()
         ) else schedule
-        repository.db.withTransaction {
-            repository.dao.deleteInjectionRecord(record.id)
-            if (wasLatest) repository.dao.saveInjection(updated)
-        }
+        repository.saveInjectionAndDeleteRecord(if (wasLatest) updated else schedule, record)
         if (wasLatest) refreshInjectionReminder(updated)
+        scheduleSync()
     }
     private suspend fun refreshInjectionReminder(schedule: InjectionSchedule) {
         if (app.settings.get().notifications) InjectionReminderScheduler.schedule(app, schedule)

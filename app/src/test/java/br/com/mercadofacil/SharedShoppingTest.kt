@@ -3,6 +3,7 @@ package br.com.mercadofacil
 import android.content.Context
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
+import androidx.work.testing.WorkManagerTestInitHelper
 import br.com.mercadofacil.data.Settings
 import br.com.mercadofacil.database.*
 import br.com.mercadofacil.repository.ShoppingRepository
@@ -15,6 +16,7 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.ResponseBody.Companion.toResponseBody
 import org.json.*
 import org.junit.Assert.*
+import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -24,6 +26,7 @@ import org.robolectric.annotation.Config
 @Config(sdk = [34], manifest = Config.NONE, application = android.app.Application::class)
 class SharedShoppingTest {
     private val context = ApplicationProvider.getApplicationContext<Context>()
+    @Before fun initializeWorkManager() { WorkManagerTestInitHelper.initializeTestWorkManager(context) }
     private fun database() = Room.inMemoryDatabaseBuilder(context, MercadoDatabase::class.java).build()
     private fun engine(repo: ShoppingRepository, server: Server, user: String) = SyncEngine(
         context, repo, Settings(context), OkHttpClient.Builder().addInterceptor(server).build(),
@@ -196,6 +199,71 @@ class SharedShoppingTest {
         } finally { db.close() }
     }
 
+    @Test fun injectionRoutinesAndHistorySyncOnlyWhenLinkedToAList() = runBlocking {
+        val firstDb = database(); val secondDb = database()
+        try {
+            val first = ShoppingRepository(firstDb); val second = ShoppingRepository(secondDb)
+            val server = Server()
+            val owner = engine(first, server, "owner"); val guest = engine(second, server, "guest")
+            val list = ShoppingList(name = "Família", shared = true)
+            first.save(list); owner.sync()
+            server.invitedList = list.id
+            guest.join("e".repeat(64))
+
+            val privateRoutine = InjectionSchedule(name = "Pessoal", personName = "Gustavo", nextDueAt = System.currentTimeMillis() + 86400000)
+            first.saveInjection(privateRoutine)
+            val linked = InjectionSchedule(name = "Rotina Ana", personName = "Ana", medication = "Medicamento teste",
+                dose = "1 ml", intervalValue = 14, intervalUnit = "DAYS", nextDueAt = System.currentTimeMillis() + 86400000,
+                reminderEnabled = true)
+            first.saveInjection(linked)
+            val record = InjectionRecord(scheduleId = linked.id, scheduledForAt = linked.nextDueAt,
+                administeredAt = System.currentTimeMillis() - 60000, dose = "1 ml", notes = "Histórico compartilhado")
+            first.saveInjectionRecord(record)
+            assertEquals(0, first.dao.totalQueued())
+
+            val shared = first.saveInjection(linked.copy(sharedListId = list.id))
+            assertEquals(linked.id, shared.id)
+            assertEquals(listOf("injection_schedule", "injection_record"), first.dao.pending().map { it.entityType })
+            owner.sync(); guest.sync()
+
+            val received = second.dao.injectionSchedules().first().single()
+            assertEquals("Rotina Ana", received.name)
+            assertEquals(list.id, received.sharedListId)
+            assertFalse("notifications are device-local", received.reminderEnabled)
+            assertEquals("Histórico compartilhado", second.dao.injectionRecords().first().single().notes)
+            assertEquals("Gustavo", first.dao.injectionSchedule(privateRoutine.id)?.personName)
+            assertTrue(second.dao.injectionSchedules().first().none { it.id == privateRoutine.id })
+            assertFalse(server.injectionSchedules[linked.id]!!.getJSONObject("data").has("reminder_enabled"))
+
+            second.saveInjection(received.copy(notes = "Alterada no outro aparelho"))
+            guest.sync(); owner.sync()
+            assertEquals("Alterada no outro aparelho", first.dao.injectionSchedule(linked.id)?.notes)
+        } finally { firstDb.close(); secondDb.close() }
+    }
+
+    @Test fun missingInjectionMigrationDoesNotBlockShoppingSyncOrLoseQueuedRoutine() = runBlocking {
+        val db = database()
+        try {
+            val repo = ShoppingRepository(db); val server = Server().apply { injectionSchemaAvailable = false }
+            val sync = engine(repo, server, "owner")
+            val list = ShoppingList(name = "Família", shared = true)
+            repo.save(list)
+            sync.sync()
+            repo.saveInjection(InjectionSchedule(name = "Rotina Ana", personName = "Ana", sharedListId = list.id,
+                nextDueAt = System.currentTimeMillis() + 86400000))
+            repo.save(ShoppingItem(listId = list.id, name = "Leite"))
+
+            sync.sync()
+
+            assertEquals(1, repo.dao.pending().count { it.entityType == "injection_schedule" })
+            assertEquals("Leite", server.items.values.single().getJSONObject("data").getString("name"))
+            server.injectionSchemaAvailable = true
+            sync.sync()
+            assertEquals(0, repo.dao.totalQueued())
+            assertEquals(1, server.injectionSchedules.size)
+        } finally { db.close() }
+    }
+
     private fun row(id: String, data: JSONObject) = JSONObject().put("id", id).put("data", data)
         .put("version", 1).put("created_at", "2026-10-25T12:00:00Z").put("updated_at", "2026-10-25T12:00:00Z")
 
@@ -205,10 +273,13 @@ class SharedShoppingTest {
         val lists = linkedMapOf<String, JSONObject>()
         val items = linkedMapOf<String, JSONObject>()
         val purchases = linkedMapOf<String, JSONObject>()
+        val injectionSchedules = linkedMapOf<String, JSONObject>()
+        val injectionRecords = linkedMapOf<String, JSONObject>()
         val photos = linkedMapOf<String, JSONObject>()
         var invitedList = ""
         var deniedList = ""
         var offline = false
+        var injectionSchemaAvailable = true
         var beforeItemsResponse: (() -> Unit)? = null
         override fun intercept(chain: Interceptor.Chain): Response {
             if (offline) throw java.io.IOException("Offline")
@@ -247,6 +318,26 @@ class SharedShoppingTest {
                         "{\"ok\":true}"
                     }
                 }
+                path.endsWith("/apply_injection_operation") -> {
+                    val buffer = okio.Buffer(); request.body!!.writeTo(buffer)
+                    val op = JSONObject(buffer.readUtf8())
+                    val rows = if (op.getString("entity") == "schedule") injectionSchedules else injectionRecords
+                    val id = op.getString("entity_id")
+                    val current = rows[id]
+                    val data = current?.getJSONObject("data") ?: JSONObject()
+                    val patch = op.getJSONObject("patch")
+                    patch.keys().forEach { data.put(it, patch.get(it)) }
+                    rows[id] = row(id, data).put("list_id", op.getString("target_list"))
+                        .put("version", (current?.optLong("version") ?: 0) + 1)
+                    if (op.getString("entity") == "schedule" && data.optBoolean("deleted")) {
+                        injectionRecords.values.filter { it.optString("list_id") == op.getString("target_list") &&
+                            it.getJSONObject("data").optString("schedule_id") == id }.forEach { it.getJSONObject("data").put("deleted", true) }
+                    }
+                    "{\"ok\":true}"
+                }
+                path.endsWith("/injection_sync_ready") -> if (injectionSchemaAvailable) "true" else {
+                    code = 404; "{\"message\":\"function not found\"}"
+                }
                 path.endsWith("/member_role") -> "\"owner\""
                 path.endsWith("/save_purchase") -> {
                     val buffer = okio.Buffer(); request.body!!.writeTo(buffer)
@@ -255,6 +346,8 @@ class SharedShoppingTest {
                     "{\"ok\":true}"
                 }
                 path.endsWith("/shared_purchases") -> JSONArray(purchases.values.filter { "eq.${it.getString("list_id")}" == request.url.queryParameter("list_id") }).toString()
+                path.endsWith("/injection_schedules") -> JSONArray(injectionSchedules.values.filter { "eq.${it.getString("list_id")}" == request.url.queryParameter("list_id") }).toString()
+                path.endsWith("/injection_records") -> JSONArray(injectionRecords.values.filter { "eq.${it.getString("list_id")}" == request.url.queryParameter("list_id") }).toString()
                 path.endsWith("/item_photos") -> {
                     if (request.method == "POST") {
                         val buffer = okio.Buffer(); request.body!!.writeTo(buffer)

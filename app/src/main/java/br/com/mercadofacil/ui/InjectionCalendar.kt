@@ -35,7 +35,8 @@ fun InjectionCalendar(
     onDateChange: (LocalDate) -> Unit,
     onRecord: (InjectionSchedule) -> Unit,
     onEditSchedule: (InjectionSchedule) -> Unit,
-    onEditRecord: (InjectionSchedule, InjectionRecord) -> Unit
+    onEditRecord: (InjectionSchedule, InjectionRecord) -> Unit,
+    canEdit: (InjectionSchedule) -> Boolean
 ) {
     val locale = remember { Locale("pt", "BR") }
     val schedulesById = remember(schedules) { schedules.associateBy { it.id } }
@@ -147,7 +148,8 @@ fun InjectionCalendar(
                         schedule.medication.takeIf { it.isNotBlank() }?.let { " · $it" }.orEmpty(),
                     onAction = { onRecord(schedule) },
                     onEdit = { onEditSchedule(schedule) },
-                    actionLabel = "Registrar"
+                    actionLabel = "Registrar",
+                    canEdit = canEdit(schedule)
                 )
             }
             selectedRecords.forEach { (schedule, record) ->
@@ -158,7 +160,8 @@ fun InjectionCalendar(
                         record.dose.takeIf { it.isNotBlank() }?.let { " · Dose $it" }.orEmpty(),
                     onAction = { onEditRecord(schedule, record) },
                     onEdit = { onEditSchedule(schedule) },
-                    actionLabel = "Editar registro"
+                    actionLabel = "Editar registro",
+                    canEdit = canEdit(schedule)
                 )
             }
         }
@@ -180,14 +183,17 @@ private fun InjectionCalendarEvent(
     detail: String,
     onAction: () -> Unit,
     onEdit: () -> Unit,
-    actionLabel: String
+    actionLabel: String,
+    canEdit: Boolean
 ) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text("${person.ifBlank { "Pessoa não identificada" }} · $title", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
             Text(detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        IconButton(onClick = onEdit) { Icon(Icons.Outlined.Edit, "Editar rotina") }
-        TextButton(onClick = onAction) { Text(actionLabel) }
+        if (canEdit) {
+            IconButton(onClick = onEdit) { Icon(Icons.Outlined.Edit, "Editar rotina") }
+            TextButton(onClick = onAction) { Text(actionLabel) }
+        }
     }
 }

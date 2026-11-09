@@ -57,6 +57,34 @@ class RoomPersistenceTest {
             assertEquals(1, repo.dao.allItems().size)
         } finally { db.close() }
     }
+    @Test fun unlinkingSharedInjectionCreatesPrivateCopyAndLeavesRemoteTombstones() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val db = Room.inMemoryDatabaseBuilder(context, MercadoDatabase::class.java).build()
+        try {
+            val repo = ShoppingRepository(db)
+            val list = ShoppingList(name = "Família", shared = true)
+            repo.save(list)
+            repo.dao.pending().forEach { repo.dao.ack(it.operationId) }
+            val private = InjectionSchedule(name = "Rotina Ana", personName = "Ana", nextDueAt = 2_000_000_000_000)
+            repo.saveInjection(private)
+            val record = InjectionRecord(scheduleId = private.id, scheduledForAt = private.nextDueAt,
+                administeredAt = 1_900_000_000_000, notes = "Histórico")
+            repo.saveInjectionRecord(record)
+            val shared = repo.saveInjection(private.copy(sharedListId = list.id))
+            repo.dao.pending().forEach { repo.dao.ack(it.operationId) }
+
+            val unshared = repo.saveInjection(shared.copy(sharedListId = null))
+
+            assertNotEquals(shared.id, unshared.id)
+            assertTrue(repo.dao.injectionSchedule(shared.id)!!.deleted)
+            assertNull(unshared.sharedListId)
+            assertEquals("Histórico", repo.dao.injectionRecordsFor(unshared.id).single().notes)
+            assertEquals(listOf("injection_schedule"), repo.dao.pending().map { it.entityType })
+            assertEquals(shared.id, repo.dao.pending().single().entityId)
+            assertTrue(org.json.JSONObject(repo.dao.pending().single().payload)
+                .getJSONObject("data").getBoolean("deleted"))
+        } finally { db.close() }
+    }
     @Test fun spokenBatchIsAtomicAndQueuesEverySharedItem() = runBlocking {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val db = Room.inMemoryDatabaseBuilder(context, MercadoDatabase::class.java).build()

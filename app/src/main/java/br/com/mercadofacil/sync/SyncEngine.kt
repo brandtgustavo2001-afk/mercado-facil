@@ -25,6 +25,7 @@ class SyncEngine(
     private val client: OkHttpClient = OkHttpClient.Builder().connectTimeout(20, TimeUnit.SECONDS).readTimeout(30, TimeUnit.SECONDS).build(),
     private val sessionStore: SessionStorage = SessionStore(context)
 ) {
+    private class SupabaseHttpException(val statusCode: Int, message: String) : IllegalStateException(message)
     private val mutex = Mutex()
     private val authMutex = Mutex()
     val status = MutableStateFlow("Somente neste aparelho")
@@ -41,7 +42,7 @@ class SyncEngine(
         if (body != null) builder.post(body.toString().toRequestBody("application/json".toMediaType()))
         client.newCall(builder.build()).execute().use {
             val text = requireNotNull(it.body).string()
-            if (!it.isSuccessful) error(AuthFeedback.error(it.code, text))
+            if (!it.isSuccessful) throw SupabaseHttpException(it.code, AuthFeedback.error(it.code, text))
             text
         }
     }
@@ -83,9 +84,11 @@ class SyncEngine(
         val beforePurchases = repository.dao.purchases().first().map { it.id }.toSet()
         status.value = "Sincronizando…"
         try {
+            val injectionSyncReady = injectionSyncReady()
             var uploadFailure: Exception? = null
             val blockedLists = mutableSetOf<String>()
             for (op in repository.dao.pending()) {
+                if (!injectionSyncReady && op.entityType.startsWith("injection_")) continue
                 if (op.listId in blockedLists) continue
                 if (repository.dao.conflicting(op.entityId) > 0) continue
                 try {
@@ -95,7 +98,12 @@ class SyncEngine(
                         continue
                     }
                     val payload = JSONObject(op.payload)
-                    val result = JSONObject(rpc("apply_operation", JSONObject().put("op_id", op.operationId).put("entity", op.entityType).put("entity_id", op.entityId).put("target_list", op.listId).put("patch", payload.getJSONObject("data")).put("base", payload.getJSONObject("base"))))
+                    val injection = op.entityType == "injection_schedule" || op.entityType == "injection_record"
+                    val entity = if (injection) op.entityType.removePrefix("injection_") else op.entityType
+                    val rpcName = if (injection) "apply_injection_operation" else "apply_operation"
+                    val result = JSONObject(rpc(rpcName, JSONObject().put("op_id", op.operationId).put("entity", entity)
+                        .put("entity_id", op.entityId).put("target_list", op.listId)
+                        .put("patch", payload.getJSONObject("data")).put("base", payload.getJSONObject("base"))))
                     if (result.optBoolean("conflict")) repository.dao.failed(op.operationId, "conflict", result.toString())
                     else {
                         check(result.optBoolean("ok")) { "O servidor não confirmou a alteração" }
@@ -110,6 +118,7 @@ class SyncEngine(
             }
             pull()
             syncPurchases()
+            if (injectionSyncReady) syncInjections()
             syncPhotos()
             notifySharedChanges(beforeItems, beforePurchases)
             uploadFailure?.let { throw it }
@@ -168,6 +177,11 @@ class SyncEngine(
             }
         }
     }
+    private suspend fun injectionSyncReady(): Boolean = try {
+        rpc("injection_sync_ready").trim() == "true"
+    } catch (e: SupabaseHttpException) {
+        if (e.statusCode == 404) false else throw e
+    }
     private suspend fun syncPhotos() {
         val photos = R2Photos(context, repository, client)
         val shared = repository.dao.allLists().filter { it.shared && !it.deleted }.map { it.id }.toSet()
@@ -184,6 +198,74 @@ class SyncEngine(
             } while (rows.length() == 100)
         }
     }
+    private suspend fun syncInjections() {
+        val sharedLists = repository.dao.allLists().filter { it.shared && !it.deleted }
+        val notificationsEnabled = settings.get().notifications
+        for (list in sharedLists) {
+            var scheduleOffset = 0
+            do {
+                val rows = JSONArray(request("/rest/v1/injection_schedules?list_id=eq.${list.id}&select=*&order=id&limit=200&offset=$scheduleOffset", token = token()))
+                for (i in 0 until rows.length()) {
+                    val row = rows.getJSONObject(i)
+                    val id = row.getString("id")
+                    var applied: InjectionSchedule? = null
+                    repository.db.withTransaction {
+                        if (repository.dao.queued(id) == 0) {
+                            val data = row.getJSONObject("data")
+                            val local = repository.dao.injectionSchedule(id)
+                            val version = row.getLong("version")
+                            if (local == null || local.version != version || local.sharedListId != list.id) {
+                                val schedule = InjectionSchedule(
+                                    id = id, name = data.getString("name"), personName = data.optString("person_name"),
+                                    medication = data.optString("medication"), dose = data.optString("dose"), route = data.optString("route"),
+                                    intervalValue = data.optInt("interval_value", 1), intervalUnit = data.optString("interval_unit", "DAYS"),
+                                    nextDueAt = data.getLong("next_due_at"), responsible = data.optString("responsible"), notes = data.optString("notes"),
+                                    active = data.optBoolean("active", true), reminderEnabled = local?.reminderEnabled ?: false,
+                                    createdAt = java.time.Instant.parse(row.getString("created_at")).toEpochMilli(),
+                                    updatedAt = java.time.Instant.parse(row.getString("updated_at")).toEpochMilli(),
+                                    sharedListId = list.id, version = version, deleted = data.optBoolean("deleted")
+                                )
+                                repository.dao.saveInjection(schedule)
+                                applied = schedule
+                            }
+                        }
+                    }
+                    applied?.let { schedule ->
+                        if (schedule.deleted || !schedule.reminderEnabled || !schedule.active || !notificationsEnabled)
+                            br.com.mercadofacil.notifications.InjectionReminderScheduler.cancel(context, schedule.id)
+                        else br.com.mercadofacil.notifications.InjectionReminderScheduler.schedule(context, schedule)
+                    }
+                }
+                scheduleOffset += rows.length()
+            } while (rows.length() == 200)
+
+            var recordOffset = 0
+            do {
+                val rows = JSONArray(request("/rest/v1/injection_records?list_id=eq.${list.id}&select=*&order=id&limit=200&offset=$recordOffset", token = token()))
+                for (i in 0 until rows.length()) {
+                    val row = rows.getJSONObject(i)
+                    val id = row.getString("id")
+                    repository.db.withTransaction {
+                        if (repository.dao.queued(id) == 0) {
+                            val data = row.getJSONObject("data")
+                            val version = row.getLong("version")
+                            val local = repository.dao.injectionRecord(id)
+                            if (local == null || local.version != version || local.scheduleId != data.getString("schedule_id")) {
+                                repository.dao.saveInjectionRecord(InjectionRecord(
+                                    id = id, scheduleId = data.getString("schedule_id"),
+                                    scheduledForAt = data.getLong("scheduled_for_at"), administeredAt = data.getLong("administered_at"),
+                                    dose = data.optString("dose"), applicationSite = data.optString("application_site"),
+                                    notes = data.optString("notes"), updatedAt = java.time.Instant.parse(row.getString("updated_at")).toEpochMilli(),
+                                    version = version, deleted = data.optBoolean("deleted")
+                                ))
+                            }
+                        }
+                    }
+                }
+                recordOffset += rows.length()
+            } while (rows.length() == 200)
+        }
+    }
     private suspend fun pull() {
         var offset = 0
         val accessible = mutableSetOf<String>()
@@ -192,8 +274,9 @@ class SyncEngine(
             for (i in 0 until rows.length()) {
                 val row = rows.getJSONObject(i); val id = row.getString("id"); accessible.add(id)
                 val d = row.getJSONObject("data")
+                val role = rpc("member_role", JSONObject().put("target_list", id)).trim().trim('"')
                 repository.db.withTransaction {
-                    if (repository.dao.queued(id) == 0) repository.dao.save(ShoppingList(id = id, name = d.getString("name"), description = d.optString("description"), market = d.optString("market"), budgetCents = d.optLong("budget_cents"), status = d.optString("status", "active"), createdAt = java.time.Instant.parse(row.getString("created_at")).toEpochMilli(), updatedAt = java.time.Instant.parse(row.getString("updated_at")).toEpochMilli(), shared = true, version = row.getLong("version"), deleted = d.optBoolean("deleted")))
+                    if (repository.dao.queued(id) == 0) repository.dao.save(ShoppingList(id = id, name = d.getString("name"), description = d.optString("description"), market = d.optString("market"), budgetCents = d.optLong("budget_cents"), status = d.optString("status", "active"), createdAt = java.time.Instant.parse(row.getString("created_at")).toEpochMilli(), updatedAt = java.time.Instant.parse(row.getString("updated_at")).toEpochMilli(), shared = true, memberRole = role, version = row.getLong("version"), deleted = d.optBoolean("deleted")))
                 }
                 var itemOffset = 0
                 do {
@@ -258,7 +341,7 @@ class SyncEngine(
                 val closed = CompletableDeferred<Unit>()
                 socket = client.newWebSocket(Request.Builder().url(config.supabaseUrl.replaceFirst("https://", "wss://") + "/realtime/v1/websocket?apikey=${config.supabaseKey}&vsn=1.0.0").build(), object : WebSocketListener() {
                     override fun onOpen(ws: WebSocket, response: Response) {
-                        ws.send(JSONObject().put("topic", "realtime:mercado").put("event", "phx_join").put("ref", "1").put("payload", JSONObject().put("access_token", access).put("config", JSONObject().put("postgres_changes", JSONArray().put(JSONObject().put("event", "*").put("schema", "public").put("table", "shopping_items")).put(JSONObject().put("event", "*").put("schema", "public").put("table", "shopping_lists")).put(JSONObject().put("event", "*").put("schema", "public").put("table", "list_members"))))).toString())
+                        ws.send(JSONObject().put("topic", "realtime:mercado").put("event", "phx_join").put("ref", "1").put("payload", JSONObject().put("access_token", access).put("config", JSONObject().put("postgres_changes", JSONArray().put(JSONObject().put("event", "*").put("schema", "public").put("table", "shopping_items")).put(JSONObject().put("event", "*").put("schema", "public").put("table", "shopping_lists")).put(JSONObject().put("event", "*").put("schema", "public").put("table", "list_members")).put(JSONObject().put("event", "*").put("schema", "public").put("table", "injection_schedules")).put(JSONObject().put("event", "*").put("schema", "public").put("table", "injection_records"))))).toString())
                     }
                     override fun onMessage(ws: WebSocket, text: String) {
                         val msg = runCatching { JSONObject(text) }.getOrNull() ?: return
