@@ -66,7 +66,7 @@ class ShoppingRepository(val db: MercadoDatabase) {
                 id = UUID.randomUUID().toString(), scheduleId = replacement.id, version = 0, deleted = false,
                 updatedAt = now
             ) }
-            replacements.forEach(dao::saveInjectionRecord)
+            replacements.forEach { dao.saveInjectionRecord(it) }
             replacement.sharedListId?.let { listId ->
                 enqueueInjectionSchedule(replacement, null, listId)
                 replacements.forEach { enqueueInjectionRecord(it, null, listId) }
