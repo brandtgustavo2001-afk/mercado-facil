@@ -151,7 +151,7 @@ import java.util.Locale
             )
         }
         item {
-            Text("Rotinas ligadas a uma lista são sincronizadas com os participantes dela. Rotinas sem lista ficam privadas neste aparelho; notificações são ajustadas separadamente em cada instalação.",
+            Text("As rotinas e o histórico são compartilhados automaticamente com os participantes das compras. Sem uma lista compartilhada com permissão de edição, ficam neste aparelho até a lista estar disponível. As notificações são ajustadas em cada aparelho.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 2.dp))
         }
