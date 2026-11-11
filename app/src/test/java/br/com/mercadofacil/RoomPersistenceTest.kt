@@ -57,7 +57,7 @@ class RoomPersistenceTest {
             assertEquals(1, repo.dao.allItems().size)
         } finally { db.close() }
     }
-    @Test fun unlinkingSharedInjectionCreatesPrivateCopyAndLeavesRemoteTombstones() = runBlocking {
+    @Test fun routineStaysSharedWhenShoppingHasParticipants() = runBlocking {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val db = Room.inMemoryDatabaseBuilder(context, MercadoDatabase::class.java).build()
         try {
@@ -75,14 +75,11 @@ class RoomPersistenceTest {
 
             val unshared = repo.saveInjection(shared.copy(sharedListId = null))
 
-            assertNotEquals(shared.id, unshared.id)
-            assertTrue(repo.dao.injectionSchedule(shared.id)!!.deleted)
-            assertNull(unshared.sharedListId)
+            assertEquals(shared.id, unshared.id)
+            assertFalse(repo.dao.injectionSchedule(shared.id)!!.deleted)
+            assertEquals(list.id, unshared.sharedListId)
             assertEquals("Histórico", repo.dao.injectionRecordsFor(unshared.id).single().notes)
-            assertEquals(listOf("injection_schedule"), repo.dao.pending().map { it.entityType })
-            assertEquals(shared.id, repo.dao.pending().single().entityId)
-            assertTrue(org.json.JSONObject(repo.dao.pending().single().payload)
-                .getJSONObject("data").getBoolean("deleted"))
+            assertTrue(repo.dao.pending().isEmpty())
         } finally { db.close() }
     }
     @Test fun spokenBatchIsAtomicAndQueuesEverySharedItem() = runBlocking {

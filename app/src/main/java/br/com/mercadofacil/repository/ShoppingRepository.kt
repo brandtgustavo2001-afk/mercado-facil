@@ -6,6 +6,7 @@ import br.com.mercadofacil.domain.Money
 import org.json.JSONObject
 import org.json.JSONArray
 import java.util.UUID
+import kotlinx.coroutines.flow.first
 
 class ShoppingRepository(val db: MercadoDatabase) {
     val dao = db.dao()
@@ -49,7 +50,8 @@ class ShoppingRepository(val db: MercadoDatabase) {
         require(schedule.intervalValue in 1..8760 && schedule.intervalUnit in setOf("HOURS", "DAYS", "WEEKS", "MONTHS"))
         val before = dao.injectionSchedule(schedule.id)
         val now = System.currentTimeMillis()
-        val next = schedule.copy(name = schedule.name.trim(), personName = schedule.personName.trim(), updatedAt = now)
+        val target = schedule.sharedListId ?: automaticInjectionList()?.id
+        val next = schedule.copy(name = schedule.name.trim(), personName = schedule.personName.trim(), updatedAt = now, sharedListId = target)
 
         if (before?.sharedListId != null && before.sharedListId != next.sharedListId) {
             val history = dao.injectionRecordsFor(before.id)
@@ -84,6 +86,18 @@ class ShoppingRepository(val db: MercadoDatabase) {
             }
         }
         next
+    }
+
+    private suspend fun automaticInjectionList() = dao.allLists()
+        .filter { it.shared && !it.deleted && it.memberRole in listOf("owner", "editor") }
+        .sortedWith(compareBy<ShoppingList> { it.createdAt }.thenBy { it.id }).firstOrNull()
+
+    /** Include existing local routines and their history when shopping collaboration becomes available. */
+    suspend fun sharePrivateInjections() = db.withTransaction {
+        val target = automaticInjectionList() ?: return@withTransaction
+        dao.injectionSchedules().first().filter { !it.deleted && it.sharedListId == null }.forEach {
+            saveInjection(it.copy(sharedListId = target.id))
+        }
     }
 
     suspend fun deleteInjection(schedule: InjectionSchedule) = db.withTransaction {
@@ -123,13 +137,13 @@ class ShoppingRepository(val db: MercadoDatabase) {
 
     suspend fun saveInjectionAndDeleteRecord(schedule: InjectionSchedule, record: InjectionRecord) = db.withTransaction {
         require(record.scheduleId == schedule.id)
-        saveInjection(schedule)
+        val saved = saveInjection(schedule)
         val current = requireNotNull(dao.injectionRecord(record.id)) { "Este registro não está mais disponível." }
-        if (schedule.sharedListId == null) dao.deleteInjectionRecord(record.id)
+        if (saved.sharedListId == null) dao.deleteInjectionRecord(record.id)
         else {
             val tombstone = current.copy(deleted = true, updatedAt = System.currentTimeMillis())
             dao.saveInjectionRecord(tombstone)
-            enqueueInjectionRecord(tombstone, current, schedule.sharedListId)
+            enqueueInjectionRecord(tombstone, current, saved.sharedListId)
         }
     }
 

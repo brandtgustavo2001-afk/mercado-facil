@@ -199,7 +199,7 @@ class SharedShoppingTest {
         } finally { db.close() }
     }
 
-    @Test fun injectionRoutinesAndHistorySyncOnlyWhenLinkedToAList() = runBlocking {
+    @Test fun injectionRoutinesAndHistoryAutomaticallySyncWithShoppingParticipants() = runBlocking {
         val firstDb = database(); val secondDb = database()
         try {
             val first = ShoppingRepository(firstDb); val second = ShoppingRepository(secondDb)
@@ -219,26 +219,47 @@ class SharedShoppingTest {
             val record = InjectionRecord(scheduleId = linked.id, scheduledForAt = linked.nextDueAt,
                 administeredAt = System.currentTimeMillis() - 60000, dose = "1 ml", notes = "Histórico compartilhado")
             first.saveInjectionRecord(record)
-            assertEquals(0, first.dao.totalQueued())
-
-            val shared = first.saveInjection(linked.copy(sharedListId = list.id))
-            assertEquals(linked.id, shared.id)
-            assertEquals(listOf("injection_schedule", "injection_record"), first.dao.pending().map { it.entityType })
+            assertEquals(list.id, first.dao.injectionSchedule(linked.id)?.sharedListId)
+            assertEquals(3, first.dao.totalQueued())
             owner.sync(); guest.sync()
 
-            val received = second.dao.injectionSchedules().first().single()
+            val received = second.dao.injectionSchedules().first().single { it.id == linked.id }
             assertEquals("Rotina Ana", received.name)
             assertEquals(list.id, received.sharedListId)
             assertFalse("notifications are device-local", received.reminderEnabled)
             assertEquals("Histórico compartilhado", second.dao.injectionRecords().first().single().notes)
             assertEquals("Gustavo", first.dao.injectionSchedule(privateRoutine.id)?.personName)
-            assertTrue(second.dao.injectionSchedules().first().none { it.id == privateRoutine.id })
+            assertTrue(second.dao.injectionSchedules().first().any { it.id == privateRoutine.id })
             assertFalse(server.injectionSchedules[linked.id]!!.getJSONObject("data").has("reminder_enabled"))
 
             second.saveInjection(received.copy(notes = "Alterada no outro aparelho"))
             guest.sync(); owner.sync()
             assertEquals("Alterada no outro aparelho", first.dao.injectionSchedule(linked.id)?.notes)
         } finally { firstDb.close(); secondDb.close() }
+    }
+
+    @Test fun existingLocalRoutinesAndHistoryJoinShoppingSharingOnce() = runBlocking {
+        val db = database()
+        try {
+            val repo = ShoppingRepository(db)
+            val routine = repo.saveInjection(InjectionSchedule(name = "Existente", nextDueAt = 1234))
+            val record = InjectionRecord(scheduleId = routine.id, scheduledForAt = 1234, administeredAt = 1234)
+            repo.saveInjectionRecord(record)
+            repo.save(ShoppingList(name = "Leitura", shared = true, memberRole = "viewer"))
+            // Simulate a list received from the server, preserving its viewer role.
+            val viewer = repo.dao.allLists().single()
+            repo.dao.save(viewer.copy(memberRole = "viewer"))
+            repo.sharePrivateInjections()
+            assertEquals(null, repo.dao.injectionSchedule(routine.id)?.sharedListId)
+            val editable = ShoppingList(name = "Família", shared = true)
+            repo.save(editable)
+            repo.sharePrivateInjections()
+            repo.sharePrivateInjections()
+            assertEquals(editable.id, repo.dao.injectionSchedule(routine.id)?.sharedListId)
+            assertEquals(1, repo.dao.pending().count { it.entityType == "injection_schedule" })
+            assertEquals(1, repo.dao.pending().count { it.entityType == "injection_record" })
+            assertEquals(record.id, repo.dao.injectionRecords().first().single().id)
+        } finally { db.close() }
     }
 
     @Test fun missingInjectionMigrationDoesNotBlockShoppingSyncOrLoseQueuedRoutine() = runBlocking {
