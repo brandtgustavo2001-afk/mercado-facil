@@ -37,6 +37,7 @@ import java.util.Locale
         role == "owner" || role == "editor"
     } ?: true
     var filter by rememberSaveable { mutableStateOf("ATIVAS") }
+    var section by rememberSaveable { mutableStateOf("Próximas") }
     var personFilter by rememberSaveable { mutableStateOf("") }
     var adding by rememberSaveable { mutableStateOf(false) }
     var editing by remember { mutableStateOf<InjectionSchedule?>(null) }
@@ -57,12 +58,17 @@ import java.util.Locale
     }
     val personNames = schedules.map { it.personName.ifBlank { "Pessoa não identificada" } }.distinct().sorted()
     val visible = statusVisible.filter { personFilter.isBlank() || it.personName.ifBlank { "Pessoa não identificada" } == personFilter }
+        .sortedWith(compareByDescending<InjectionSchedule> { it.active }.thenBy { it.nextDueAt })
     val calendarSchedules = schedules.filter { personFilter.isBlank() || it.personName.ifBlank { "Pessoa não identificada" } == personFilter }
     val calendarIds = calendarSchedules.mapTo(mutableSetOf()) { it.id }
     val calendarRecords = records.filter { it.scheduleId in calendarIds }
     val recordsBySchedule = records.groupBy { it.scheduleId }
     val now = System.currentTimeMillis()
-    val dueSoon = active.count { it.nextDueAt in now..(now + 7 * 24 * 60 * 60 * 1000L) }
+    val scopedActive = calendarSchedules.filter { it.active }
+    val today = LocalDate.now()
+    val overdue = scopedActive.count { it.nextDueAt < now }
+    val dueToday = scopedActive.count { Instant.ofEpochMilli(it.nextDueAt).atZone(ZoneId.systemDefault()).toLocalDate() == today }
+    val history = calendarRecords.sortedByDescending { it.administeredAt }
     LaunchedEffect(personFilter, personNames) {
         if (personFilter.isNotBlank() && personFilter !in personNames) personFilter = ""
     }
@@ -74,29 +80,22 @@ import java.util.Locale
     ) {
         item {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("ROTINA DE SAÚDE", style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
-                Text("Injeções", style = MaterialTheme.typography.headlineSmall)
-                Text("Organize as próximas datas e registre cada aplicação.",
+                Text("Injeções", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+                Text("Datas, pessoas e aplicações em um só lugar.",
                     style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Button(onClick = { adding = true }, modifier = Modifier.fillMaxWidth().heightIn(min = 50.dp),
                     shape = RoundedCornerShape(14.dp)) {
                     Icon(Icons.Outlined.Add, contentDescription = null)
                     Spacer(Modifier.width(8.dp))
-                    Text("Nova aplicação")
+                    Text("Cadastrar rotina")
                 }
             }
         }
         item {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                InjectionSummary("Ativas", active.size.toString(), Icons.Outlined.MedicalServices, Modifier.weight(1f))
-                InjectionSummary("Nos próximos 7 dias", dueSoon.toString(), Icons.Outlined.Event, Modifier.weight(1f))
-            }
-        }
-        item {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf("ATIVAS" to "Ativas", "PAUSADAS" to "Pausadas", "TODAS" to "Todas").forEach { (key, label) ->
-                    FilterChip(selected = filter == key, onClick = { filter = key }, label = { Text(label) })
+            val sections = listOf("Próximas", "Calendário", "Histórico")
+            TabRow(selectedTabIndex = sections.indexOf(section)) {
+                sections.forEach { label ->
+                    Tab(selected = section == label, onClick = { section = label }, text = { Text(label) })
                 }
             }
         }
@@ -105,7 +104,22 @@ import java.util.Locale
                 personFilter = if (it == "Todas as pessoas") "" else it
             }
         }
-        item {
+        if (section == "Próximas") item {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                InjectionSummary("Atrasadas", overdue.toString(), Icons.Outlined.Schedule, Modifier.weight(1f))
+                InjectionSummary("Hoje", dueToday.toString(), Icons.Outlined.Today, Modifier.weight(1f))
+                InjectionSummary("Ativas", scopedActive.size.toString(), Icons.Outlined.MedicalServices, Modifier.weight(1f))
+            }
+            Spacer(Modifier.height(12.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf("ATIVAS" to "Ativas", "PAUSADAS" to "Pausadas", "TODAS" to "Todas").forEach { (key, label) ->
+                    FilterChip(selected = filter == key, onClick = { filter = key }, label = { Text(label) })
+                }
+            }
+            Text("Rotinas por próxima data", style = MaterialTheme.typography.titleSmall,
+                modifier = Modifier.padding(top = 8.dp))
+        }
+        if (section == "Calendário") item {
             InjectionCalendar(
                 schedules = calendarSchedules,
                 records = calendarRecords,
@@ -122,7 +136,7 @@ import java.util.Locale
                 canEdit = ::canEdit
             )
         }
-        if (visible.isEmpty()) item {
+        if (section == "Próximas" && visible.isEmpty()) item {
             Surface(color = MaterialTheme.colorScheme.surface, shape = RoundedCornerShape(18.dp),
                 border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
                 Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -135,7 +149,7 @@ import java.util.Locale
                 }
             }
         }
-        items(visible, key = { it.id }) { schedule ->
+        if (section == "Próximas") items(visible, key = { it.id }) { schedule ->
             InjectionScheduleCard(
                 schedule = schedule,
                 records = recordsBySchedule[schedule.id].orEmpty().sortedByDescending { it.administeredAt },
@@ -150,8 +164,29 @@ import java.util.Locale
                 onDeleteRecord = { record -> deletingRecord = schedule to record }
             )
         }
+        if (section == "Histórico") {
+            if (history.isEmpty()) item {
+                Text("Nenhuma aplicação registrada para esta seleção.",
+                    style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(vertical = 24.dp))
+            }
+            items(history, key = { "history:${it.id}" }) { record ->
+                calendarSchedules.firstOrNull { it.id == record.scheduleId }?.let { schedule ->
+                    OutlinedCard(Modifier.fillMaxWidth()) {
+                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text(schedule.personName.ifBlank { "Pessoa não identificada" },
+                                style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                            Text(schedule.name, style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.primary)
+                            InjectionHistoryRow(record, canEdit(schedule),
+                                onEdit = { editingRecord = schedule to record },
+                                onDelete = { deletingRecord = schedule to record })
+                        }
+                    }
+                }
+            }
+        }
         item {
-            Text("As rotinas e o histórico são compartilhados automaticamente com os participantes das compras. Sem uma lista compartilhada com permissão de edição, ficam neste aparelho até a lista estar disponível. As notificações são ajustadas em cada aparelho.",
+            Text("Compartilhado com os participantes das compras. Lembretes são ajustados em cada aparelho.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 2.dp))
         }
@@ -195,12 +230,10 @@ import java.util.Locale
 @Composable private fun InjectionSummary(label: String, value: String, icon: androidx.compose.ui.graphics.vector.ImageVector, modifier: Modifier = Modifier) {
     Surface(modifier, color = MaterialTheme.colorScheme.surface, shape = RoundedCornerShape(16.dp),
         border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
-        Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
-            Column {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
                 Text(value, style = MaterialTheme.typography.titleLarge)
                 Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
         }
     }
 }
@@ -220,6 +253,7 @@ import java.util.Locale
 ) {
     var menuOpen by remember { mutableStateOf(false) }
     var showHistory by rememberSaveable(schedule.id) { mutableStateOf(false) }
+    var showDetails by rememberSaveable(schedule.id) { mutableStateOf(false) }
     val due = dueStatus(schedule.nextDueAt)
     Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -227,8 +261,9 @@ import java.util.Locale
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(11.dp)) {
             Row(verticalAlignment = Alignment.Top) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                    Text(schedule.name, style = MaterialTheme.typography.titleMedium)
-                    Text(schedule.personName.ifBlank { "Pessoa não identificada" }, style = MaterialTheme.typography.labelMedium,
+                    Text(schedule.personName.ifBlank { "Pessoa não identificada" }, style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold)
+                    Text(schedule.name, style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.primary)
                     if (schedule.medication.isNotBlank()) Text(schedule.medication, style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -258,9 +293,16 @@ import java.util.Locale
                 Icon(Icons.Outlined.Event, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(19.dp))
                 Column {
                     Text("Próxima aplicação", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text(formatInjectionDateTime(schedule.nextDueAt), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                    Text(formatInjectionDateTime(schedule.nextDueAt), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                 }
             }
+            Text(injectionIntervalLabel(schedule.intervalValue, schedule.intervalUnit),
+                style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            TextButton(onClick = { showDetails = !showDetails }, contentPadding = PaddingValues(0.dp)) {
+                Text(if (showDetails) "Ocultar detalhes" else "Detalhes e lembrete")
+                Icon(if (showDetails) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore, null)
+            }
+            if (showDetails) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text("Notificação neste aparelho", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium)
@@ -278,6 +320,7 @@ import java.util.Locale
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             if (schedule.notes.isNotBlank()) Text(schedule.notes, style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
             if (canEdit) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     FilledTonalButton(onClick = onRecord, enabled = schedule.active, modifier = Modifier.weight(1f)) {
