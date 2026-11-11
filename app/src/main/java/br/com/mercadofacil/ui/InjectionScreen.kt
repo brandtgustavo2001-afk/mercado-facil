@@ -186,7 +186,9 @@ import java.util.Locale
             }
         }
         item {
-            Text("Compartilhado com os participantes das compras. Lembretes são ajustados em cada aparelho.",
+            Text(if (schedules.any { it.sharedListId != null })
+                "Compartilhado com os participantes das compras. Lembretes são ajustados em cada aparelho."
+                else "As rotinas serão compartilhadas quando uma lista de compras com permissão de edição estiver disponível.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 2.dp))
         }
@@ -296,7 +298,8 @@ import java.util.Locale
                     Text(formatInjectionDateTime(schedule.nextDueAt), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                 }
             }
-            Text(injectionIntervalLabel(schedule.intervalValue, schedule.intervalUnit),
+            Text(listOfNotNull(schedule.dose.takeIf { it.isNotBlank() }?.let { "Dose: $it" },
+                injectionIntervalLabel(schedule.intervalValue, schedule.intervalUnit)).joinToString(" · "),
                 style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             TextButton(onClick = { showDetails = !showDetails }, contentPadding = PaddingValues(0.dp)) {
                 Text(if (showDetails) "Ocultar detalhes" else "Detalhes e lembrete")
