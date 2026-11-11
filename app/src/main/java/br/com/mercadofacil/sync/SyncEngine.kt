@@ -85,6 +85,7 @@ class SyncEngine(
         status.value = "Sincronizando…"
         try {
             val injectionSyncReady = injectionSyncReady()
+            repository.sharePrivateInjections()
             var uploadFailure: Exception? = null
             val blockedLists = mutableSetOf<String>()
             for (op in repository.dao.pending()) {
@@ -117,6 +118,7 @@ class SyncEngine(
                 }
             }
             pull()
+            repository.sharePrivateInjections()
             syncPurchases()
             if (injectionSyncReady) syncInjections()
             syncPhotos()

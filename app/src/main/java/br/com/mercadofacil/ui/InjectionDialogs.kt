@@ -39,7 +39,8 @@ import java.time.ZoneOffset
     var unit by remember(initial?.id) { mutableStateOf(initial?.intervalUnit ?: "DAYS") }
     var nextDueAt by remember(initial?.id) { mutableLongStateOf(initial?.nextDueAt ?: System.currentTimeMillis() + 24 * 60 * 60 * 1000L) }
     var reminder by remember(initial?.id) { mutableStateOf(initial?.reminderEnabled ?: true) }
-    var sharedListId by remember(initial?.id) { mutableStateOf(initial?.sharedListId) }
+    var sharedListId by remember(initial?.id, sharedLists) { mutableStateOf(initial?.sharedListId ?: sharedLists
+        .sortedWith(compareBy<ShoppingList> { it.createdAt }.thenBy { it.id }).firstOrNull()?.id) }
     var sharingMenuOpen by remember { mutableStateOf(false) }
     var notes by remember(initial?.id) { mutableStateOf(initial?.notes.orEmpty()) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -57,17 +58,13 @@ import java.time.ZoneOffset
                     modifier = Modifier.fillMaxWidth(), singleLine = true)
                 Text("Cadastre uma rotina para cada pessoa e aplicação. Cada rotina tem intervalo e lembrete próprios; você pode editar os nomes depois.",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text("Compartilhar com", style = MaterialTheme.typography.labelMedium)
+                Text("Compartilhada com os participantes das compras", style = MaterialTheme.typography.labelMedium)
                 Box {
                     OutlinedButton(onClick = { sharingMenuOpen = true }, modifier = Modifier.fillMaxWidth()) {
                         Text(sharedListId?.let { id -> sharedLists.firstOrNull { it.id == id }?.name ?: "Lista compartilhada" }
                             ?: "Somente neste aparelho")
                     }
                     DropdownMenu(expanded = sharingMenuOpen, onDismissRequest = { sharingMenuOpen = false }) {
-                        DropdownMenuItem(text = { Text("Somente neste aparelho") }, onClick = {
-                            sharedListId = null
-                            sharingMenuOpen = false
-                        })
                         sharedLists.forEach { list ->
                             DropdownMenuItem(text = { Text(list.name) }, onClick = {
                                 sharedListId = list.id
